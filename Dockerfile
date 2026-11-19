@@ -32,13 +32,14 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www/html
 
 COPY composer.json composer.lock ./
+COPY . .
+
 RUN composer install \
     --no-dev \
     --no-interaction \
     --prefer-dist \
     --optimize-autoloader
 
-COPY . .
 COPY --from=frontend /app/public/build ./public/build
 
 RUN sed -ri 's/Listen 80/Listen 10000/' /etc/apache2/ports.conf \
