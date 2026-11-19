@@ -23,7 +23,6 @@ RUN apt-get update \
         curl \
         intl \
         mbstring \
-        opcache \
         pdo_pgsql \
         zip \
     && rm -rf /var/lib/apt/lists/*
