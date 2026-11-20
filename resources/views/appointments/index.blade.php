@@ -63,7 +63,7 @@
                         window.setupAvailableSlotPicker(
                             document.getElementById('scheduled_date'),
                             document.getElementById('scheduled_time'),
-                            @json(route('appointments.available-times')),
+                            @json(route('appointments.available-times', [], false)),
                             @json(old('scheduled_time', '')),
                             {{ auth()->user()->role === 'teacher' ? 'true' : 'false' }}
                         );

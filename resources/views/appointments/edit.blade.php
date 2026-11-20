@@ -52,7 +52,7 @@
                 window.setupAvailableSlotPicker(
                     document.getElementById('scheduled_date'),
                     document.getElementById('scheduled_time'),
-                    @json(route('appointments.available-times')),
+                    @json(route('appointments.available-times', [], false)),
                     @json(old('scheduled_time', $appointment->scheduled_at?->format('H:i') ?? '')),
                     false,
                     @json($appointment->id)

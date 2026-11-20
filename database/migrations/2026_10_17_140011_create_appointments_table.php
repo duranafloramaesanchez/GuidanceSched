@@ -22,6 +22,8 @@ return new class extends Migration
             $table->timestamps();
             $table->index(['student_id', 'status']);
             $table->index(['status', 'scheduled_at']);
+            $table->index('created_by');
+            $table->index('assigned_to');
         });
     }
 

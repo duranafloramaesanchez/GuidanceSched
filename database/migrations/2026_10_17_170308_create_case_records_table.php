@@ -18,8 +18,17 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->string('status')->default('open');
             $table->string('category')->default('other');
+            $table->text('remarks')->nullable();
+            $table->date('session_date')->nullable();
+            $table->time('session_time')->nullable();
+            $table->time('session_end_time')->nullable();
+            $table->text('findings')->nullable();
+            $table->text('recommendations')->nullable();
             $table->timestamps();
             $table->index(['status', 'category']);
+            $table->index('student_id');
+            $table->index('created_by');
+            $table->index('appointment_id');
         });
     }
 

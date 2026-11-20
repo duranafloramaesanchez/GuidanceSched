@@ -275,7 +275,7 @@
             try {
                 const response = await fetch(`${endpoint}?${params}`, { headers: { Accept: 'application/json' }, cache: 'no-store' });
                 if (currentRequest !== requestNumber || dateSelect.value !== date) return;
-                if (!response.ok) return;
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const { times } = await response.json();
                 if (currentRequest !== requestNumber || dateSelect.value !== date) return;
                 if (times.length === 0) timeSelect.options[0].text = 'No open times for this date';
@@ -284,7 +284,7 @@
                 selectedTime = '';
             } catch (error) {
                 if (currentRequest !== requestNumber) return;
-                timeSelect.add(new Option('Unable to load available times', ''));
+                timeSelect.replaceChildren(new Option(`Unable to load available times${error.message ? ` (${error.message})` : ''}`, ''));
             }
         };
         dateSelect.addEventListener('change', () => {

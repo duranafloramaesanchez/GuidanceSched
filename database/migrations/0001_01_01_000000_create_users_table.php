@@ -14,9 +14,6 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->text('two_factor_secret')->nullable();
-            $table->text('two_factor_recovery_codes')->nullable();
-            $table->timestamp('two_factor_confirmed_at')->nullable();
             $table->rememberToken();
             $table->string('role')->default('student');
             $table->string('student_number', 50)->nullable()->unique();
@@ -27,6 +24,11 @@ return new class extends Migration
             $table->string('guardian_name')->nullable();
             $table->string('guardian_relationship', 100)->nullable();
             $table->string('guardian_contact_number', 50)->nullable();
+            $table->foreignId('assigned_teacher_id')
+                ->nullable()
+                ->constrained('users')
+                ->nullOnDelete();
+            $table->index('assigned_teacher_id');
             $table->timestamps();
         });
 

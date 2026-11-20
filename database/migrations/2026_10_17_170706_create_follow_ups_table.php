@@ -16,6 +16,8 @@ return new class extends Migration
             $table->text('notes');
             $table->string('action_taken')->nullable();
             $table->timestamps();
+            $table->index('created_by');
+            $table->index(['case_record_id', 'follow_up_date']);
         });
     }
 
