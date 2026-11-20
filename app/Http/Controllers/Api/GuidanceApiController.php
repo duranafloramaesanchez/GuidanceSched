@@ -105,9 +105,6 @@ class GuidanceApiController extends Controller
             if (($data['status'] ?? null) === 'approved' && empty($data['scheduled_at'] ?? $appointment->scheduled_at)) {
                 return response()->json(['message' => 'Assign an available consultation time before approving.'], 422);
             }
-            if (isset($data['status']) && ! $this->canTransition($appointment->status, $data['status'])) {
-                return response()->json(['message' => 'That status change is not allowed.'], 422);
-            }
         } elseif ($user->role === 'teacher') {
             abort_unless($appointment->status === 'pending', 403, 'Teachers can assign times to pending requests only.');
             $data = $request->validate([
@@ -135,7 +132,6 @@ class GuidanceApiController extends Controller
     {
         $this->authorizeAppointment($request, $appointment);
         abort_unless($request->user()->role === 'admin', 403, 'Only an administrator can change the request status.');
-        abort_unless($this->canTransition($appointment->status, 'cancelled'), 422, 'This appointment can no longer be cancelled.');
         $appointment->update(['status' => 'cancelled']);
 
         return response()->json(['data' => $this->appointmentData($appointment->refresh())]);
@@ -271,13 +267,4 @@ class GuidanceApiController extends Controller
         abort_unless($request->user()->role === 'admin', 403);
     }
 
-    private function canTransition(string $from, string $to): bool
-    {
-        return $from === $to || in_array($to, [
-            'pending' => ['approved', 'cancelled'],
-            'approved' => ['completed', 'cancelled'],
-            'completed' => [],
-            'cancelled' => [],
-        ][$from] ?? [], true);
-    }
 }

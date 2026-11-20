@@ -150,10 +150,6 @@ class AppointmentController extends Controller
                 return back()->withErrors(['scheduled_date' => 'Assign an available consultation time before approving this request.'])->withInput();
             }
 
-            if (! $this->canTransition($appointment->status, $validated['status'])) {
-                return back()->withErrors(['status' => 'That status change is not allowed.'])->withInput();
-            }
-
             $appointment->update([...$validated, 'scheduled_at' => $scheduledAt]);
         } elseif ($user->role === 'teacher') {
             abort_unless($appointment->status === 'pending', 403, 'Teachers can assign times to pending requests only.');
@@ -171,10 +167,6 @@ class AppointmentController extends Controller
         $this->authorizeAppointment($appointment);
         abort_unless(auth()->user()->role === 'admin', 403, 'Only an administrator can change the request status.');
 
-        if (! $this->canTransition($appointment->status, 'cancelled')) {
-            return back()->withErrors(['status' => 'This appointment can no longer be cancelled.']);
-        }
-
         $appointment->update(['status' => 'cancelled']);
 
         return redirect()->route('appointments.index')->with('success', 'Appointment cancelled.');
@@ -188,18 +180,6 @@ class AppointmentController extends Controller
         $isStudentOwner = $user->role === 'student' && (int) $appointment->student_id === (int) $user->id;
 
         abort_unless($user->role === 'admin' || $isAssignedTeacher || $isStudentOwner, 403);
-    }
-
-    private function canTransition(string $from, string $to): bool
-    {
-        $transitions = [
-            'pending' => ['approved', 'cancelled'],
-            'approved' => ['completed', 'cancelled'],
-            'completed' => [],
-            'cancelled' => [],
-        ];
-
-        return $from === $to || in_array($to, $transitions[$from] ?? [], true);
     }
 
     /** Build open half-hour weekday slots for the next 30 days. */
@@ -274,6 +254,10 @@ class AppointmentController extends Controller
         }
 
         $datetime = "$date $time";
+        if ($except?->scheduled_at?->format('Y-m-d H:i') === $datetime) {
+            return $datetime;
+        }
+
         Validator::make(['scheduled_at' => $datetime], [
             'scheduled_at' => ['required', 'date', 'after:now'],
         ])->validate();
