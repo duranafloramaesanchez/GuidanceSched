@@ -60,9 +60,15 @@ class AppointmentController extends Controller
         return view('appointments.index', compact('appointments', 'students'));
     }
 
-    public function availableTimes(Request $request): JsonResponse
+    public function availableTimes(Request $request): JsonResponse|RedirectResponse
     {
         abort_unless(in_array($request->user()->role, ['admin', 'teacher'], true), 403);
+
+        // This endpoint is for the picker’s background request, not direct browser navigation.
+        if (! $request->expectsJson()) {
+            return redirect()->route('appointments.index');
+        }
+
         $validated = $request->validate([
             'date' => ['required', 'date', 'after_or_equal:today', 'before_or_equal:' . now()->addDays(30)->toDateString()],
             'appointment_id' => ['nullable', 'integer', Rule::exists('appointments', 'id')],
