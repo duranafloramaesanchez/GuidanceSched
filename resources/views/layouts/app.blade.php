@@ -27,6 +27,7 @@
         button, input, select, textarea { font: inherit; }
         .app-sidebar { position: fixed; inset: 0 auto 0 0; z-index: 5; display: flex; flex-direction: column; width: 252px; padding: 24px 16px 18px; color: white; background: var(--sidebar); }
         .brand-lockup { display: flex; align-items: center; gap: 11px; padding: 2px 10px 27px; color: white; }
+        .mobile-menu-toggle { display: none; }
         .brand-mark { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; color: #12312e; background: #88d0bc; font-size: 17px; font-weight: 800; }
         .brand-name { font-size: 16px; font-weight: 750; letter-spacing: -.02em; }
         .brand-caption { color: #a7c2bc; font-size: 11px; }
@@ -131,14 +132,24 @@
             .content-grid { grid-template-columns: 1fr; }
         }
         @media (max-width: 720px) {
-            .app-sidebar { position: static; width: 100%; padding: 10px 14px; }
-            .brand-lockup { padding: 3px 5px 11px; }
+            .app-sidebar { position: sticky; top: 0; width: 100%; padding: 10px 14px; }
+            .brand-lockup { padding: 3px 5px; }
             .brand-mark { width: 33px; height: 33px; }
-            .nav-label, .sidebar-spacer, .account-card, .logout-form { display: none; }
-            .side-nav { display: flex; overflow-x: auto; gap: 5px; padding-bottom: 3px; }
-            .side-link { flex: 0 0 auto; min-height: 36px; padding: 8px 10px; font-size: 11px; }
-            .side-link.active { box-shadow: inset 0 -2px #8bd7c1; }
-            .side-icon { display: none; }
+            .mobile-menu-toggle { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid rgba(255,255,255,.2); border-radius: 9px; color: white; background: transparent; cursor: pointer; font-size: 23px; line-height: 1; }
+            .mobile-menu-toggle:focus-visible { outline: 2px solid #8bd7c1; outline-offset: 2px; }
+            .app-sidebar:not(.is-open) .nav-label,
+            .app-sidebar:not(.is-open) .side-nav,
+            .app-sidebar:not(.is-open) .sidebar-spacer,
+            .app-sidebar:not(.is-open) .account-card,
+            .app-sidebar:not(.is-open) .logout-form { display: none; }
+            .app-sidebar.is-open .nav-label { display: block; }
+            .app-sidebar.is-open .side-nav { display: grid; gap: 4px; padding: 0 0 8px; }
+            .app-sidebar.is-open .sidebar-spacer { display: none; }
+            .app-sidebar.is-open .account-card { display: flex; margin-top: 4px; }
+            .app-sidebar.is-open .logout-form { display: block; }
+            .side-link { min-height: 42px; padding: 9px 11px; font-size: 13px; }
+            .side-link.active { box-shadow: inset 3px 0 #8bd7c1; }
+            .side-icon { display: grid; }
             .app-main { margin-left: 0; }
             .topbar { min-height: 82px; padding: 17px 18px; }
             .content-wrap { padding: 18px 14px 34px; }
@@ -160,11 +171,15 @@
 <body>
 @auth
     @php($currentUser = auth()->user())
-    <aside class="app-sidebar">
-        <a class="brand-lockup" href="{{ route('dashboard') }}">
-            <span class="brand-mark">G</span>
-            <span><span class="brand-name">GuidanceSched</span><br><span class="brand-caption">Student support portal</span></span>
-        </a>
+    <aside class="app-sidebar" id="app-navigation">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+            <a class="brand-lockup" href="{{ route('dashboard') }}">
+                <span class="brand-mark">G</span>
+                <span><span class="brand-name">GuidanceSched</span><br><span class="brand-caption">Student support portal</span></span>
+            </a>
+            <button class="mobile-menu-toggle" type="button" aria-label="Open navigation menu" aria-expanded="false" aria-controls="app-navigation-content">☰</button>
+        </div>
+        <div id="app-navigation-content">
         <div class="nav-label">Workspace</div>
         <nav class="side-nav" aria-label="Main navigation">
             <a class="side-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">
@@ -198,6 +213,7 @@
             @csrf
             <button class="logout-button" type="submit">↪ &nbsp; Sign out</button>
         </form>
+        </div>
     </aside>
 @endauth
 
@@ -225,6 +241,24 @@
     </main>
 </div>
 <script>
+    const mobileMenuToggle = document.querySelector('.mobile-menu-toggle');
+    const appNavigation = document.querySelector('.app-sidebar');
+    mobileMenuToggle?.addEventListener('click', () => {
+        const isOpen = appNavigation.classList.toggle('is-open');
+        mobileMenuToggle.setAttribute('aria-expanded', String(isOpen));
+        mobileMenuToggle.setAttribute('aria-label', isOpen ? 'Close navigation menu' : 'Open navigation menu');
+        mobileMenuToggle.textContent = isOpen ? '×' : '☰';
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && appNavigation?.classList.contains('is-open')) {
+            appNavigation.classList.remove('is-open');
+            mobileMenuToggle?.setAttribute('aria-expanded', 'false');
+            mobileMenuToggle?.setAttribute('aria-label', 'Open navigation menu');
+            if (mobileMenuToggle) mobileMenuToggle.textContent = '☰';
+            mobileMenuToggle?.focus();
+        }
+    });
+
     window.setupAvailableSlotPicker = function (dateSelect, timeSelect, endpoint, selectedTime = '', requireSelection = false, appointmentId = null) {
         let requestNumber = 0;
         const refresh = async () => {
