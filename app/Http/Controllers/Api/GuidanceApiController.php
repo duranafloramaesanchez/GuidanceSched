@@ -11,6 +11,7 @@ use Illuminate\Validation\Rule;
 
 class GuidanceApiController extends Controller
 {
+    // Returns appointment data as JSON, filtered by the signed-in API user's role.
     public function appointments(Request $request): JsonResponse
     {
         $filters = $request->validate([
@@ -40,6 +41,7 @@ class GuidanceApiController extends Controller
 
     public function createAppointment(Request $request): JsonResponse
     {
+        // Only staff accounts can create an appointment through the API.
         $user = $request->user();
         abort_unless(in_array($user->role, ['admin', 'teacher'], true), 403);
         $data = $request->validate([
@@ -91,6 +93,7 @@ class GuidanceApiController extends Controller
         $user = $request->user();
         abort_unless($user->role !== 'student', 403, 'Students can only view assigned consultation dates, times, and status.');
 
+        // Each role has different fields it may change.
         if ($user->role === 'admin') {
             $data = $request->validate([
                 'status' => ['sometimes', 'required', Rule::in(Appointment::STATUSES)],
@@ -139,6 +142,7 @@ class GuidanceApiController extends Controller
 
     public function cases(Request $request): JsonResponse
     {
+        // Case information is confidential, so this API endpoint is admin-only.
         $this->ensureAdmin($request);
         $filters = $request->validate([
             'status' => ['nullable', 'in:open,in_progress,closed'],
@@ -197,6 +201,7 @@ class GuidanceApiController extends Controller
 
     private function appointmentData(Appointment $appointment): array
     {
+        // This is the staff JSON format. Internal appointment notes are deliberately omitted.
         return [
             'id' => $appointment->id,
             'student_id' => $appointment->student_id,
@@ -227,6 +232,7 @@ class GuidanceApiController extends Controller
 
     private function caseData(CaseRecord $case, bool $includeFollowUps = false): array
     {
+        // Build one consistent JSON format for case lists and case details.
         $data = [
             'id' => $case->id,
             'case_number' => $case->case_number,
@@ -254,6 +260,7 @@ class GuidanceApiController extends Controller
 
     private function authorizeAppointment(Request $request, Appointment $appointment): void
     {
+        // Apply the same ownership rule to API requests as browser requests.
         $user = $request->user();
         $isAssignedTeacher = $user->role === 'teacher'
             && $appointment->student()->where('assigned_teacher_id', $user->id)->exists();
@@ -266,5 +273,4 @@ class GuidanceApiController extends Controller
     {
         abort_unless($request->user()->role === 'admin', 403);
     }
-
 }

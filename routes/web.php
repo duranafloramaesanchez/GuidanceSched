@@ -11,8 +11,12 @@ Route::get('/', function () {
     return redirect()->route('dashboard');
 });
 
+// Every browser page below requires the user to sign in first.
 Route::middleware('auth')->group(function () {
+    // The dashboard shows counts based on the signed-in user's role.
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // Consultation pages: view requests, check free times, and manage schedules.
     Route::get('/appointments', [AppointmentController::class, 'index'])
         ->name('appointments.index');
     Route::get('/appointments/available-times', [AppointmentController::class, 'availableTimes'])
@@ -24,10 +28,12 @@ Route::middleware('auth')->group(function () {
     Route::put('/appointments/{appointment}', [AppointmentController::class, 'update'])->name('appointments.update');
     Route::patch('/appointments/{appointment}/cancel', [AppointmentController::class, 'cancel'])->name('appointments.cancel');
 
+    // Student profile pages are available to teachers and administrators.
     Route::get('/students', [UserController::class, 'students'])->name('students.index');
     Route::get('/students/{user}/details', [UserController::class, 'editStudentDetails'])->name('students.details.edit');
     Route::put('/students/{user}/details', [UserController::class, 'updateStudentDetails'])->name('students.details.update');
 
+    // Account management pages. The controller allows administrators only.
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
     Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
     Route::post('/users', [UserController::class, 'store'])->name('users.store');
@@ -36,6 +42,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
     Route::patch('/users/{user}/password', [UserController::class, 'resetPassword'])->name('users.reset-password');
 
+    // Confidential case and follow-up pages. The controller allows administrators only.
     Route::prefix('cases')->name('cases.')->group(function () {
         Route::get('/', [CaseRecordController::class, 'index'])
             ->name('index');
@@ -49,6 +56,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/{case}/edit', [CaseRecordController::class, 'edit'])->name('edit');
         Route::put('/{case}', [CaseRecordController::class, 'update'])->name('update');
         Route::post('/{case}/follow-ups', [FollowUpController::class, 'store'])->name('follow-ups.store');
+        Route::patch('/{case}/follow-ups/{followUp}', [FollowUpController::class, 'update'])->name('follow-ups.update');
 
         Route::get('/{case}', [CaseRecordController::class, 'show'])
             ->name('show');

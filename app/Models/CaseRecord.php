@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CaseRecord extends Model
 {
+    // These case fields may be saved from the case controller after validation.
     protected $fillable = [
         'student_id',
         'created_by',
@@ -42,6 +43,7 @@ class CaseRecord extends Model
 
     public function followUps(): HasMany
     {
+        // Follow-ups are returned with the newest note first.
         return $this->hasMany(FollowUp::class)->orderByDesc('follow_up_date');
     }
 }

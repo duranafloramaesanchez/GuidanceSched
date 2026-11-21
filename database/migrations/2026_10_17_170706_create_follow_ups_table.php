@@ -9,6 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('follow_ups', function (Blueprint $table) {
+            // Dated notes and actions recorded after a guidance case is created.
             $table->id();
             $table->foreignId('case_record_id')->constrained('case_records')->cascadeOnDelete();
             $table->foreignId('created_by')->constrained('users')->restrictOnDelete();

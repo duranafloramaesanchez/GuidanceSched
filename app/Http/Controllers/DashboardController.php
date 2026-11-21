@@ -13,6 +13,7 @@ class DashboardController extends Controller
     {
         $user = auth()->user();
 
+        // Start with only the appointments this user is allowed to count.
         if ($user->role === 'admin') {
             $appointments = Appointment::query();
         } elseif ($user->role === 'teacher') {
@@ -32,6 +33,7 @@ class DashboardController extends Controller
             'cancelled' => (clone $appointments)->where('status', 'cancelled')->count(),
         ];
 
+        // Guidance-only case and follow-up counts stay off teacher and student dashboards.
         if ($user->role === 'admin') {
             $stats['open_cases'] = CaseRecord::whereIn('status', ['open', 'in_progress'])->count();
             $stats['follow_ups_today'] = FollowUp::whereDate('follow_up_date', today())->count();

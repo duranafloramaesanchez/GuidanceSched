@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class FollowUp extends Model
 {
+    // A follow-up belongs to one case and records later guidance work.
     protected $fillable = [
         'case_record_id',
         'created_by',

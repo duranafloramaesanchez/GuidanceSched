@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+{{-- Main layout shared by signed-in pages: navigation, page title, messages, and page content. --}}
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -104,8 +105,37 @@
         .notice ul { margin: 6px 0 0; padding-left: 20px; }
         .empty-state { padding: 34px 20px; color: var(--muted); text-align: center; }
         .empty-icon { display: grid; place-items: center; width: 42px; height: 42px; margin: 0 auto 12px; border-radius: 13px; color: #438b77; background: #e9f5f1; font-size: 20px; }
-        .pagination { display: flex; justify-content: center; gap: 6px; margin-top: 18px; }
-        .pagination a, .pagination span { padding: 7px 10px; border: 1px solid #e2eae7; border-radius: 7px; background: white; font-size: 11px; }
+        .pagination { margin-top: 18px; }
+        .pagination nav { width: 100%; }
+        .pagination nav > div:first-child { display: none; }
+        .pagination nav > div:last-child { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+        .pagination nav > div:last-child > div:last-child > span { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; box-shadow: none; }
+        .pagination nav a,
+        .pagination nav [aria-disabled="true"] > span,
+        .pagination nav [aria-current="page"] > span {
+            box-sizing: border-box;
+            display: inline-flex;
+            min-width: 36px;
+            min-height: 36px;
+            align-items: center;
+            justify-content: center;
+            padding: 7px 10px;
+            border: 1px solid #e2eae7;
+            border-radius: 7px;
+            color: #37514d;
+            background: white;
+            font-size: 12px;
+            line-height: 20px;
+        }
+        .pagination nav a:hover { color: var(--brand-dark); background: #f8fbfa; }
+        .pagination nav [aria-disabled="true"] > span,
+        .pagination nav [aria-current="page"] > span { color: var(--muted); background: #f4f7f6; }
+        .pagination nav svg { width: 16px; height: 16px; flex: none; }
+        @media (max-width: 560px) {
+            .pagination nav > div:last-child > div:first-child { display: none; }
+            .pagination nav > div:last-child > div:last-child { width: 100%; }
+            .pagination nav > div:last-child > div:last-child > span { justify-content: center; }
+        }
         .detail-list { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 15px; margin: 0; }
         .detail-item dt { color: var(--muted); font-size: 11px; }
         .detail-item dd { margin: 4px 0 0; color: var(--ink); font-size: 13px; font-weight: 600; }
@@ -113,6 +143,10 @@
         .follow-up-item { padding: 16px 0; border-top: 1px solid var(--line); }
         .follow-up-item:first-of-type { border-top: 0; }
         .follow-up-date { color: #47645e; font-size: 11px; font-weight: 700; }
+        .follow-up-edit { margin-top: 10px; }
+        .follow-up-edit summary { display: inline-flex; cursor: pointer; list-style: none; }
+        .follow-up-edit summary::-webkit-details-marker { display: none; }
+        .follow-up-edit-form { margin-top: 12px; }
         .auth-page { display: grid; min-height: 100vh; grid-template-columns: minmax(350px, .9fr) 1.1fr; background: #fff; }
         .auth-panel { display: flex; align-items: center; justify-content: center; padding: 48px 30px; }
         .auth-card { width: min(390px, 100%); }

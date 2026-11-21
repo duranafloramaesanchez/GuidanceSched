@@ -9,11 +9,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('case_records', function (Blueprint $table) {
+            // Confidential guidance case linked to a student and optionally an appointment.
             $table->id();
             $table->foreignId('student_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('created_by')->constrained('users')->restrictOnDelete();
             $table->foreignId('appointment_id')->nullable()->constrained('appointments')->nullOnDelete();
-            $table->string('case_number')->unique();
+            $table->string('case_number')->unique(); // Unique staff reference number.
             $table->string('title');
             $table->text('description')->nullable();
             $table->string('status')->default('open');
@@ -25,6 +26,7 @@ return new class extends Migration
             $table->text('findings')->nullable();
             $table->text('recommendations')->nullable();
             $table->timestamps();
+            // Indexes support the case list filters.
             $table->index(['status', 'category']);
             $table->index('student_id');
             $table->index('created_by');

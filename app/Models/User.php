@@ -24,6 +24,7 @@ class User extends Authenticatable
 
     protected function casts(): array
     {
+        // Laravel hashes a password before it is saved to the database.
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
@@ -32,6 +33,7 @@ class User extends Authenticatable
 
     public function appointmentsAsStudent(): HasMany
     {
+        // Appointments where this user is the student receiving guidance.
         return $this->hasMany(Appointment::class, 'student_id');
     }
 
@@ -42,6 +44,7 @@ class User extends Authenticatable
 
     public function assignedStudents(): HasMany
     {
+        // Students linked to this teacher account.
         return $this->hasMany(self::class, 'assigned_teacher_id')->where('role', 'student');
     }
 

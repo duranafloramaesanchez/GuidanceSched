@@ -1,0 +1,46 @@
+databases:
+  - name: guidancesched-db
+    databaseName: guidancesched
+    user: guidance
+    plan: free
+    region: singapore
+    postgresMajorVersion: "18"
+
+services:
+  - type: web
+    name: guidancesched-test
+    runtime: docker
+    plan: free
+    region: singapore
+    healthCheckPath: /up
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        sync: false
+      - key: APP_URL
+        fromService:
+          name: guidancesched-test
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: ASSET_URL
+        fromService:
+          name: guidancesched-test
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_URL
+        fromDatabase:
+          name: guidancesched-db
+          property: connectionString
+      - key: SESSION_DRIVER
+        value: database
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: LOG_LEVEL
+        value: warning

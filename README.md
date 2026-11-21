@@ -11,18 +11,23 @@ The application uses three role values: `admin`, `teacher`, and `student`. The a
 The checked-in Sail configuration uses PHP 8.5 and PostgreSQL 18. The locked Composer dependencies require PHP 8.4.1 or newer, and `composer.json` declares `^8.4.1`. Use Sail or another PHP 8.4.1+ runtime; PHP 8.1 cannot run Artisan with this lock file.
 
 1. Copy `.env.example` to `.env` if needed. It is configured for the private Compose PostgreSQL service; change the development database password if desired.
-2. Start Sail when Docker Desktop integration is available:
+2. Install Composer dependencies before starting Sail. This provides the Sail runtime files used by Compose:
 
    ```sh
-   ./vendor/bin/sail up -d
-   ./vendor/bin/sail composer install
+   composer install
+   ```
+
+3. Start Sail and finish setup:
+
+   ```sh
+   ./vendor/bin/sail up -d --build
    ./vendor/bin/sail artisan key:generate
    ./vendor/bin/sail artisan migrate --seed
    ./vendor/bin/sail npm install
    ./vendor/bin/sail npm run build
    ```
 
-3. Open the configured `APP_URL` (Sail defaults to `http://localhost`).
+4. Open the configured `APP_URL` (Sail defaults to `http://localhost`).
 
 The PostgreSQL port in `compose.yaml` binds to `127.0.0.1` for local development only; the database container is also on the private Compose network. Do not publish port 5432 on a public interface in a deployment.
 

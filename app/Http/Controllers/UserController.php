@@ -15,11 +15,13 @@ class UserController extends Controller
 {
     private function ensureAdmin(): void
     {
+        // Only administrators may manage user accounts.
         abort_unless(auth()->user()?->role === 'admin', 403);
     }
 
     private function ensureTeacherOrAdmin(): void
     {
+        // Teachers and administrators can work with student profile details.
         abort_unless(in_array(auth()->user()?->role, ['teacher', 'admin'], true), 403);
     }
 
@@ -120,6 +122,7 @@ class UserController extends Controller
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
+        // Teacher and admin accounts do not use the student and guardian fields.
         if ($validated['role'] !== 'student') {
             $validated = array_merge($validated, $this->emptyStudentProfile());
         }
@@ -224,7 +227,7 @@ class UserController extends Controller
             ]);
         }
 
-        // Keep accounts with linked history so deleting them cannot cascade-delete records.
+        // Keep accounts with linked history so deleting them cannot remove related records.
         if (
             $user->appointmentsAsStudent()->exists() ||
             $user->appointmentsAssigned()->exists() ||

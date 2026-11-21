@@ -52,4 +52,4 @@ RUN sed -ri 's/Listen 80/Listen 10000/' /etc/apache2/ports.conf \
 
 EXPOSE 10000
 
-CMD ["sh", "-c", "php artisan migrate --force && php artisan db:seed --force && exec apache2-foreground"]
+CMD ["sh", "-c", "php artisan migrate --force && exec apache2-foreground"]

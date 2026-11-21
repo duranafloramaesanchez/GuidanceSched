@@ -9,6 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('users', function (Blueprint $table) {
+            // Every person who can sign in: student, teacher, or administrator.
             $table->id();
             $table->string('name');
             $table->string('email')->unique();
@@ -24,6 +25,7 @@ return new class extends Migration
             $table->string('guardian_name')->nullable();
             $table->string('guardian_relationship', 100)->nullable();
             $table->string('guardian_contact_number', 50)->nullable();
+            // Links a student to the teacher responsible for that student.
             $table->foreignId('assigned_teacher_id')
                 ->nullable()
                 ->constrained('users')
@@ -39,6 +41,7 @@ return new class extends Migration
         });
 
         Schema::create('sessions', function (Blueprint $table) {
+            // Stores browser sign-in sessions when SESSION_DRIVER is set to database.
             $table->string('id')->primary();
             $table->foreignId('user_id')->nullable()->index();
             $table->string('ip_address', 45)->nullable();

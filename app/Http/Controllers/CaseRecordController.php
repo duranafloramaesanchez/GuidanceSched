@@ -15,6 +15,7 @@ class CaseRecordController extends Controller
 {
     private function ensureAdmin(): void
     {
+        // Case records contain confidential guidance information.
         abort_unless(auth()->user()?->role === 'admin', 403);
     }
 
@@ -98,6 +99,7 @@ class CaseRecordController extends Controller
             'Select a valid student account.'
         );
 
+        // Create a unique reference number so staff can identify this case.
         $case = CaseRecord::create([
             'student_id' => $validated['student_id'],
             'created_by' => $request->user()->id,
@@ -128,6 +130,7 @@ class CaseRecordController extends Controller
             'student',
             'creator',
             'appointment',
+            'followUps.creator',
         ]);
 
         return view('cases.show', compact('case'));

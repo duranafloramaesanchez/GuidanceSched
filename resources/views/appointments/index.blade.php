@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+{{-- Appointment page: staff create requests; students see their assigned consultation times. --}}
+
 @section('title', 'Consultations | GuidanceSched')
 @section('page_title', auth()->user()->role === 'student' ? 'My consultation times' : (auth()->user()->role === 'admin' ? 'Consultations' : 'My consultations'))
 @section('page_description', auth()->user()->role === 'admin' ? 'Create requests for students, assign available times, and manage consultation status.' : (auth()->user()->role === 'teacher' ? 'Create student requests and coordinate available consultation times.' : 'View only consultation dates and times assigned to you.'))
