@@ -14,10 +14,13 @@ class GuidanceApiController extends Controller
     // Returns appointment data as JSON, filtered by the signed-in API user's role.
     public function appointments(Request $request): JsonResponse
     {
+        // Validate filters before building the query so unsupported status values are rejected.
         $filters = $request->validate([
             'status' => ['nullable', Rule::in(Appointment::STATUSES)],
         ]);
         $query = Appointment::query()->latest();
+        // Scope rows at the database level: students see their scheduled appointments only,
+        // teachers see their assigned students' appointments, and admins see all appointments.
         if ($request->user()->role === 'student') {
             $query->where('student_id', $request->user()->id)
                 ->whereNotNull('scheduled_at');
@@ -28,6 +31,7 @@ class GuidanceApiController extends Controller
             $query->where('status', $status);
         }
 
+        // Keep the student response minimal; staff receive the broader appointment representation.
         return response()->json($query->paginate(20)->through(function (Appointment $appointment) use ($request) {
             return $request->user()->role === 'student'
                 ? [
@@ -41,7 +45,8 @@ class GuidanceApiController extends Controller
 
     public function createAppointment(Request $request): JsonResponse
     {
-        // Only staff accounts can create an appointment through the API.
+        // Only staff can create requests. Teachers must select a student assigned to them and a time;
+        // an admin may create an unassigned request for any student.
         $user = $request->user();
         abort_unless(in_array($user->role, ['admin', 'teacher'], true), 403);
         $data = $request->validate([
@@ -55,6 +60,7 @@ class GuidanceApiController extends Controller
             'reason' => ['nullable', 'string', 'max:2000'],
             'scheduled_at' => [Rule::requiredIf($user->role === 'teacher'), 'nullable', 'date', 'after:now'],
         ]);
+        // A valid date is not enough: enforce the same business-hour and conflict rules as the web form.
         if (! empty($data['scheduled_at']) && ! $this->isAvailableSlot($data['scheduled_at'])) {
             return response()->json(['message' => 'That time is unavailable. Choose another slot.'], 422);
         }
@@ -76,6 +82,7 @@ class GuidanceApiController extends Controller
         $this->authorizeAppointment($request, $appointment);
 
         if ($request->user()->role === 'student') {
+            // Do not expose an unassigned request or staff-only fields to a student.
             abort_unless($appointment->scheduled_at, 404);
             return response()->json(['data' => [
                 'title' => $appointment->title,
@@ -91,9 +98,10 @@ class GuidanceApiController extends Controller
     {
         $this->authorizeAppointment($request, $appointment);
         $user = $request->user();
+        // Students may read limited schedule details, but only staff may change appointment records through the API.
         abort_unless($user->role !== 'student', 403, 'Students can only view assigned consultation dates, times, and status.');
 
-        // Each role has different fields it may change.
+        // Whitelist update fields by role so callers cannot change fields outside their responsibility.
         if ($user->role === 'admin') {
             $data = $request->validate([
                 'status' => ['sometimes', 'required', Rule::in(Appointment::STATUSES)],
@@ -105,10 +113,12 @@ class GuidanceApiController extends Controller
             if (! empty($data['scheduled_at']) && ! $this->isAvailableSlot($data['scheduled_at'], $appointment)) {
                 return response()->json(['message' => 'That time is unavailable. Choose another slot.'], 422);
             }
+            // Approval without an assigned time would create an unusable appointment.
             if (($data['status'] ?? null) === 'approved' && empty($data['scheduled_at'] ?? $appointment->scheduled_at)) {
                 return response()->json(['message' => 'Assign an available consultation time before approving.'], 422);
             }
         } elseif ($user->role === 'teacher') {
+            // Teachers may assign a time only while the request is pending; status remains admin-controlled.
             abort_unless($appointment->status === 'pending', 403, 'Teachers can assign times to pending requests only.');
             $data = $request->validate([
                 'scheduled_at' => ['sometimes', 'nullable', 'date', 'after:now'],
@@ -142,7 +152,7 @@ class GuidanceApiController extends Controller
 
     public function cases(Request $request): JsonResponse
     {
-        // Case information is confidential, so this API endpoint is admin-only.
+        // Case details and follow-up notes are confidential and are available to administrators only.
         $this->ensureAdmin($request);
         $filters = $request->validate([
             'status' => ['nullable', 'in:open,in_progress,closed'],
@@ -164,6 +174,7 @@ class GuidanceApiController extends Controller
     public function showCase(Request $request, CaseRecord $case): JsonResponse
     {
         $this->ensureAdmin($request);
+        // Load the relationships used by the detailed response in one pass.
         $case->load(['student', 'followUps.creator']);
 
         return response()->json(['data' => $this->caseData($case, true)]);
@@ -183,12 +194,14 @@ class GuidanceApiController extends Controller
     {
         $this->ensureAdmin($request);
 
+        // The case relationship scopes entries to this case; return creator identity without extra user fields.
         return response()->json(['data' => $case->followUps()->with('creator:id,name')->get()]);
     }
 
     public function createFollowUp(Request $request, CaseRecord $case): JsonResponse
     {
         $this->ensureAdmin($request);
+        // Validate the note, then create it through its parent case so case_record_id cannot be spoofed.
         $data = $request->validate([
             'follow_up_date' => ['required', 'date'],
             'notes' => ['required', 'string', 'max:5000'],
@@ -216,11 +229,13 @@ class GuidanceApiController extends Controller
 
     private function isAvailableSlot(string $value, ?Appointment $appointment = null): bool
     {
+        // Treat only future half-hour weekday slots between 08:00 and 17:00 as valid.
         $slot = \Illuminate\Support\Carbon::parse($value);
         if ($slot->minute % 30 !== 0 || $slot->second !== 0 || $slot->isWeekend() || $slot->hour < 8 || $slot->hour >= 17) {
             return false;
         }
 
+        // Pending and approved bookings reserve their date/time; completed and cancelled ones do not.
         return ! Appointment::query()
             ->when($appointment, fn ($query) => $query->where('id', '!=', $appointment->getKey()))
             ->whereIn('status', ['pending', 'approved'])
@@ -246,6 +261,7 @@ class GuidanceApiController extends Controller
         ];
 
         if ($includeFollowUps) {
+            // Include private follow-up content only in the admin-only detailed case response, not list rows.
             $data['follow_ups'] = $case->followUps->map(fn ($followUp) => [
                 'id' => $followUp->id,
                 'date' => $followUp->follow_up_date,
@@ -260,7 +276,7 @@ class GuidanceApiController extends Controller
 
     private function authorizeAppointment(Request $request, Appointment $appointment): void
     {
-        // Apply the same ownership rule to API requests as browser requests.
+        // Basic authentication identifies the caller; this ownership check decides which record they may access.
         $user = $request->user();
         $isAssignedTeacher = $user->role === 'teacher'
             && $appointment->student()->where('assigned_teacher_id', $user->id)->exists();

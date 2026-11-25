@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CaseRecord extends Model
 {
-    // These case fields may be saved from the case controller after validation.
+    // Case fields allowed for mass assignment after the admin-only controller validates the request.
     protected $fillable = [
         'student_id',
         'created_by',
@@ -28,22 +28,25 @@ class CaseRecord extends Model
 
     public function student(): BelongsTo
     {
+        // Student whose guidance history this private record describes.
         return $this->belongsTo(User::class, 'student_id');
     }
 
     public function creator(): BelongsTo
     {
+        // Admin who opened the case; useful for identifying the original record owner.
         return $this->belongsTo(User::class, 'created_by');
     }
 
     public function appointment(): BelongsTo
     {
+        // Optional consultation linked to this case, if the case was opened from a request.
         return $this->belongsTo(Appointment::class);
     }
 
     public function followUps(): HasMany
     {
-        // Follow-ups are returned with the newest note first.
+        // One case may have many dated notes; show the newest follow-up first on case detail pages.
         return $this->hasMany(FollowUp::class)->orderByDesc('follow_up_date');
     }
 }

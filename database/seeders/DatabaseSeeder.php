@@ -18,7 +18,8 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // These accounts and records are fictional and exist only for demonstrations.
+        // These accounts and linked records are fictional local-demo fixtures, not production accounts.
+        // firstOrCreate makes the default seed safe to rerun without duplicating the same demo rows.
         $admin = User::firstOrCreate(['email' => 'admin@guidancesched.test'], [
             'name' => 'Demo Guidance Admin', 'role' => 'admin', 'password' => 'ChangeMe123!',
         ]);
@@ -29,6 +30,7 @@ class DatabaseSeeder extends Seeder
             'name' => 'Demo Student', 'role' => 'student', 'password' => 'ChangeMe123!',
         ]);
 
+        // Build one small, connected example so local users can explore the appointment-to-case workflow.
         $appointment = Appointment::firstOrCreate(
             ['student_id' => $student->id, 'title' => 'Study planning consultation'],
             ['created_by' => $admin->id, 'reason' => 'Discussing study routines (fictional demo data).', 'scheduled_at' => now()->addDays(2), 'status' => 'pending'],

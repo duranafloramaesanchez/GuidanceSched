@@ -8,6 +8,7 @@
 
 @section('content')
     <div class="content-stack">
+        {{-- Only staff see the request form; the controller separately verifies role and student assignment. --}}
         @if (in_array(auth()->user()->role, ['admin', 'teacher'], true))
             <section class="card">
                 <div class="card-header">
@@ -85,6 +86,7 @@
                     @if (auth()->user()->role !== 'student')<p class="card-subtitle">{{ $appointments->total() }} {{ $appointments->total() === 1 ? 'request' : 'requests' }}</p>@endif
                 </div>
             </div>
+            {{-- Search and status filters are staff-only; student queries are scoped to their own schedule. --}}
             @if (auth()->user()->role !== 'student')
                 <form class="filter-bar" method="GET">
                     <input type="search" name="search" value="{{ request('search') }}" placeholder="Search topic or requester" aria-label="Search consultation requests">

@@ -16,7 +16,9 @@ return new class extends Migration
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->rememberToken();
+            // Controllers use this role to choose permissions and role-specific data.
             $table->string('role')->default('student');
+            // Student-only fields stay nullable because staff accounts share this table.
             $table->string('student_number', 50)->nullable()->unique();
             $table->string('grade_level', 50)->nullable();
             $table->string('section', 100)->nullable();
@@ -26,6 +28,7 @@ return new class extends Migration
             $table->string('guardian_relationship', 100)->nullable();
             $table->string('guardian_contact_number', 50)->nullable();
             // Links a student to the teacher responsible for that student.
+            // A self-reference links students to teachers; nullOnDelete keeps a student account if a teacher is removed.
             $table->foreignId('assigned_teacher_id')
                 ->nullable()
                 ->constrained('users')
@@ -34,6 +37,7 @@ return new class extends Migration
             $table->timestamps();
         });
 
+        // Framework support table used by Laravel's password-reset flow.
         Schema::create('password_reset_tokens', function (Blueprint $table) {
             $table->string('email')->primary();
             $table->string('token');

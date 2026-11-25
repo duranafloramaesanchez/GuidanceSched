@@ -12,6 +12,7 @@ Route::get('/', function () {
 });
 
 // Every browser page below requires the user to sign in first.
+// This middleware does not decide what each role may do; controllers enforce role and record ownership.
 Route::middleware('auth')->group(function () {
     // The dashboard shows counts based on the signed-in user's role.
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

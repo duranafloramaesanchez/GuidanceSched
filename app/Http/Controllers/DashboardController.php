@@ -9,6 +9,10 @@ use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
+    /**
+     * Build dashboard totals from the same role-scoped appointment query used for each person.
+     * Case and follow-up totals are added only for administrators because those records are private.
+     */
     public function index(): View
     {
         $user = auth()->user();
@@ -26,6 +30,7 @@ class DashboardController extends Controller
                 ->whereNotNull('scheduled_at');
         }
 
+        // Clone the base query so each count adds its own status filter without affecting the next one.
         $stats = [
             'pending' => (clone $appointments)->where('status', 'pending')->count(),
             'approved' => (clone $appointments)->where('status', 'approved')->count(),

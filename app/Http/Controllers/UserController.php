@@ -15,13 +15,13 @@ class UserController extends Controller
 {
     private function ensureAdmin(): void
     {
-        // Only administrators may manage user accounts.
+        // Keep account administration server-side: hiding these links is not an access check.
         abort_unless(auth()->user()?->role === 'admin', 403);
     }
 
     private function ensureTeacherOrAdmin(): void
     {
-        // Teachers and administrators can work with student profile details.
+        // This role gate admits teachers and admins; each profile action separately scopes the target student.
         abort_unless(in_array(auth()->user()?->role, ['teacher', 'admin'], true), 403);
     }
 
@@ -48,6 +48,7 @@ class UserController extends Controller
     {
         $this->ensureTeacherOrAdmin();
 
+        // Filter by assignment in the database so teachers never receive other teachers' students.
         $students = User::query()
             ->where('role', 'student')
             ->when(auth()->user()->role === 'teacher', fn ($query) => $query->where('assigned_teacher_id', auth()->id()))
@@ -66,6 +67,7 @@ class UserController extends Controller
     public function editStudentDetails(User $user): View
     {
         $this->ensureTeacherOrAdmin();
+        // The route accepts any user ID, so reject non-students and unassigned teacher targets.
         abort_unless($user->role === 'student', 404);
         $this->ensureStudentIsAssignedToCurrentTeacher($user);
 
@@ -75,6 +77,7 @@ class UserController extends Controller
     public function updateStudentDetails(Request $request, User $user): RedirectResponse
     {
         $this->ensureTeacherOrAdmin();
+        // Repeat the checks on writes; a user cannot bypass them by submitting a direct form request.
         abort_unless($user->role === 'student', 404);
         $this->ensureStudentIsAssignedToCurrentTeacher($user);
 
@@ -106,6 +109,8 @@ class UserController extends Controller
     {
         $this->ensureAdmin();
 
+        // Role and teacher IDs are checked against allowed values/roles before an account is created.
+        // Student-only fields are required only when the selected account is a student.
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
@@ -164,10 +169,12 @@ class UserController extends Controller
             'guardian_contact_number' => ['required_if:role,student', 'nullable', 'string', 'max:50'],
         ]);
 
+        // Clear old student/guardian details when an account is changed to staff.
         if ($validated['role'] !== 'student') {
             $validated = array_merge($validated, $this->emptyStudentProfile());
         }
 
+        // Prevent an administrator from removing their own access through account management.
         if (
             $user->id === $request->user()->id &&
             $validated['role'] !== 'admin'
@@ -177,6 +184,7 @@ class UserController extends Controller
             ])->withInput();
         }
 
+        // Keep at least one administrator so the system cannot lose its only account manager.
         if (
             $user->role === 'admin' &&
             $validated['role'] !== 'admin' &&
@@ -201,6 +209,7 @@ class UserController extends Controller
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
+        // Hash the new password before persistence; never store the submitted password as plain text.
         $user->password = Hash::make($validated['password']);
         $user->save();
 
@@ -212,6 +221,7 @@ class UserController extends Controller
     {
         $this->ensureAdmin();
 
+        // Preserve a way for the current administrator to sign in and manage the system.
         if ($user->id === auth()->id()) {
             return back()->withErrors([
                 'delete' => 'You cannot delete your own account.',
@@ -227,7 +237,8 @@ class UserController extends Controller
             ]);
         }
 
-        // Keep accounts with linked history so deleting them cannot remove related records.
+        // Preserve historical appointments, cases, and notes: deleting a linked account would
+        // either break those records or remove the identity that explains who created them.
         if (
             $user->appointmentsAsStudent()->exists() ||
             $user->appointmentsAssigned()->exists() ||
@@ -264,6 +275,7 @@ class UserController extends Controller
     private function ensureStudentIsAssignedToCurrentTeacher(User $student): void
     {
         if (auth()->user()->role === 'teacher') {
+            // Return 404 rather than revealing whether another teacher's student account exists.
             abort_unless((int) $student->assigned_teacher_id === (int) auth()->id(), 404);
         }
     }

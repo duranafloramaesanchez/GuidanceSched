@@ -39,6 +39,7 @@ class User extends Authenticatable
 
     public function assignedTeacher(): BelongsTo
     {
+        // Teacher responsible for this student; null for accounts without an assignment.
         return $this->belongsTo(self::class, 'assigned_teacher_id');
     }
 
@@ -50,11 +51,13 @@ class User extends Authenticatable
 
     public function appointmentsAssigned(): HasMany
     {
+        // Consultations where this account is the assigned guidance administrator.
         return $this->hasMany(Appointment::class, 'assigned_to');
     }
 
     public function createdCases(): HasMany
     {
+        // Case records authored by this account; used to preserve history on account deletion.
         return $this->hasMany(CaseRecord::class, 'created_by');
     }
 }

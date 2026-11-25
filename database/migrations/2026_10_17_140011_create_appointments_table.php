@@ -11,15 +11,17 @@ return new class extends Migration
         Schema::create('appointments', function (Blueprint $table) {
             // A consultation request connects a student, the creator, and optionally assigned guidance staff.
             $table->id();
+            // Deleting a student removes their requests; deleting staff preserves requests but clears staff references.
             $table->foreignId('student_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('assigned_to')->nullable()->constrained('users')->nullOnDelete();
             $table->string('title');
             $table->text('reason')->nullable();
+            // Null means staff have received the request but have not assigned a consultation time yet.
             $table->dateTime('scheduled_at')->nullable();
             $table->integer('duration_minutes')->default(30);
             $table->string('status')->default('pending');
-            $table->text('notes')->nullable(); // Staff-only appointment notes.
+            $table->text('notes')->nullable(); // Private staff notes; deliberately omitted from student/API projections.
             $table->timestamps();
             // Indexes make common student, status, and date searches faster.
             $table->index(['student_id', 'status']);

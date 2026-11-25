@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Appointment extends Model
 {
-    // Fields the controller is allowed to save or update for an appointment.
+    // Mass-assignable fields used after controllers validate a create or update request.
     protected $fillable = [
         'student_id',
         'created_by',
@@ -20,7 +20,7 @@ class Appointment extends Model
         'notes',
     ];
 
-    // The appointment workflow uses only these four statuses.
+    // Allowed appointment states; controllers validate transitions and require a time before approval.
     public const STATUSES = ['pending', 'approved', 'completed', 'cancelled'];
 
     protected function casts(): array
@@ -38,12 +38,13 @@ class Appointment extends Model
 
     public function assignedPersonnel(): BelongsTo
     {
-        // The guidance staff member assigned to handle the consultation.
+        // Optional administrator responsible for handling this consultation.
         return $this->belongsTo(User::class, 'assigned_to');
     }
 
     public function createdBy(): BelongsTo
     {
+        // Staff account that originally submitted the request; retained for audit context.
         return $this->belongsTo(User::class, 'created_by');
     }
 }

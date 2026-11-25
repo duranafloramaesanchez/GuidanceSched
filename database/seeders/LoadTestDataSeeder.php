@@ -16,10 +16,12 @@ class LoadTestDataSeeder extends Seeder
 {
     public function run(): void
     {
+        // Avoid accidentally inserting a large synthetic dataset into a live database.
         if (app()->environment('production') && ! filter_var(env('LOAD_TEST_ALLOW_PRODUCTION', false), FILTER_VALIDATE_BOOLEAN)) {
             throw new RuntimeException('Load-test seeding is disabled in production. Set LOAD_TEST_ALLOW_PRODUCTION=true only for a controlled test.');
         }
 
+        // Counts can be increased in the local .env to match the scale of a planned load test.
         $teacherCount = $this->positiveCount('LOAD_TEST_TEACHERS', 10);
         $studentCount = $this->positiveCount('LOAD_TEST_STUDENTS', 250);
         $appointmentCount = $this->positiveCount('LOAD_TEST_APPOINTMENTS', 2000);
@@ -29,6 +31,7 @@ class LoadTestDataSeeder extends Seeder
         $admin = User::query()->where('role', 'admin')->firstOrFail();
         $password = Hash::make((string) env('LOAD_TEST_PASSWORD', 'LoadTestPass123!'));
 
+        // Stable email keys let reruns update the same test accounts instead of creating duplicates.
         $teachers = collect(range(1, $teacherCount))->map(function (int $number) use ($password): User {
             return User::query()->updateOrCreate(
                 ['email' => sprintf('loadtest.teacher.%04d@guidancesched.test', $number)],
@@ -57,6 +60,7 @@ class LoadTestDataSeeder extends Seeder
             );
         })->values();
 
+        // Distribute requests across the generated students and teachers, cycling through every status.
         $appointments = collect(range(1, $appointmentCount))->map(function (int $number) use ($admin, $students, $teachers): Appointment {
             $student = $students[($number - 1) % $students->count()];
             $teacher = $teachers[($number - 1) % $teachers->count()];
@@ -82,6 +86,7 @@ class LoadTestDataSeeder extends Seeder
             );
         })->values();
 
+        // Give generated cases links to generated students and appointments for realistic list/detail queries.
         $cases = collect(range(1, $caseCount))->map(function (int $number) use ($admin, $students, $appointments): CaseRecord {
             $studentIndex = ($number - 1) % $students->count();
             $appointment = $appointments[($number - 1) % $appointments->count()];
@@ -100,6 +105,7 @@ class LoadTestDataSeeder extends Seeder
             );
         })->values();
 
+        // Anchor follow-up dates to the case creation date so rerunning the seeder keeps the same keys.
         foreach ($cases as $caseIndex => $case) {
             for ($followUpNumber = 1; $followUpNumber <= $followUpsPerCase; $followUpNumber++) {
                 $date = Carbon::parse($case->created_at)->subDays($followUpNumber * 7 + ($caseIndex % 30))->toDateString();
@@ -130,6 +136,7 @@ class LoadTestDataSeeder extends Seeder
 
     private function positiveCount(string $environmentVariable, int $default): int
     {
+        // A zero/negative count could leave later records without teachers, students, or parent rows.
         $count = (int) env($environmentVariable, $default);
 
         if ($count < 1) {

@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 
 // These routes send JSON data to another program instead of returning Blade web pages.
 // HTTP Basic authentication keeps this small prototype API stateless.
+// The API controller still performs role and record-ownership checks after authentication succeeds.
 Route::middleware('auth.basic')->group(function () {
     // Appointment API: list, create, view, update, and cancel requests.
     Route::get('/appointments', [GuidanceApiController::class, 'appointments']);

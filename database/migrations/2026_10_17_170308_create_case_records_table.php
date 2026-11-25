@@ -11,8 +11,10 @@ return new class extends Migration
         Schema::create('case_records', function (Blueprint $table) {
             // Confidential guidance case linked to a student and optionally an appointment.
             $table->id();
+            // Student deletion removes their private case; creator deletion is restricted to preserve authorship.
             $table->foreignId('student_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('created_by')->constrained('users')->restrictOnDelete();
+            // A case can exist without an appointment; removing a linked appointment keeps the case itself.
             $table->foreignId('appointment_id')->nullable()->constrained('appointments')->nullOnDelete();
             $table->string('case_number')->unique(); // Unique staff reference number.
             $table->string('title');

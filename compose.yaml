@@ -1,3 +1,4 @@
+# Local development stack: the Laravel container and PostgreSQL share a private Compose network.
 services:
     laravel.test:
         build:
@@ -26,6 +27,7 @@ services:
     pgsql:
         image: 'postgres:18-alpine'
         ports:
+            # Bind PostgreSQL to localhost so it is not exposed to the host network.
             - '127.0.0.1:${FORWARD_DB_PORT:-5432}:5432'
         environment:
             PGPASSWORD: '${DB_PASSWORD:-secret}'
@@ -33,6 +35,7 @@ services:
             POSTGRES_USER: '${DB_USERNAME}'
             POSTGRES_PASSWORD: '${DB_PASSWORD:-secret}'
         volumes:
+            # Keep the local database across container restarts; remove this volume only to reset local data.
             - 'sail-pgsql:/var/lib/postgresql'
             - './vendor/laravel/sail/database/pgsql/create-testing-database.sql:/docker-entrypoint-initdb.d/10-create-testing-database.sql'
         networks:

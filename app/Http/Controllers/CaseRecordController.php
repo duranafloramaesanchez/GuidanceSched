@@ -15,19 +15,22 @@ class CaseRecordController extends Controller
 {
     private function ensureAdmin(): void
     {
-        // Case records contain confidential guidance information.
+        // Case records contain private guidance information. Enforce this in the controller,
+        // even when a non-admin manually enters a case URL instead of using the hidden menu link.
         abort_unless(auth()->user()?->role === 'admin', 403);
     }
 
     public function index(Request $request): View
     {
         $this->ensureAdmin();
+        // Accept only supported filters, then apply them to the query before pagination.
         $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', 'in:open,in_progress,closed'],
             'category' => ['nullable', 'in:academic,personal,social,career,other'],
         ]);
 
+        // Eager-load the names and appointment displayed in each row to avoid one query per case.
         $query = CaseRecord::with(['student', 'creator', 'appointment'])->latest();
         if ($status = $filters['status'] ?? null) {
             $query->where('status', $status);
@@ -51,6 +54,7 @@ class CaseRecordController extends Controller
     {
         $this->ensureAdmin();
 
+        // Populate the form with valid student choices and only active appointments that may be linked.
         $students = User::where('role', 'student')
             ->orderBy('name')
             ->get(['id', 'name', 'email']);
@@ -67,6 +71,8 @@ class CaseRecordController extends Controller
     {
         $this->ensureAdmin();
 
+        // Validate ordinary fields first; the appointment rule also checks that the selected
+        // appointment belongs to the selected student and is still pending or approved.
         $validated = $request->validate([
             'student_id' => ['required', 'integer', 'exists:users,id'],
             'appointment_id' => [
@@ -90,7 +96,7 @@ class CaseRecordController extends Controller
             'status' => ['required', 'in:open,in_progress,closed'],
         ]);
 
-        // The ID only needs to point to a user; enforce the student role separately.
+        // `exists:users,id` alone would accept a teacher or administrator ID, so check the role too.
         abort_unless(
             User::whereKey($validated['student_id'])
                 ->where('role', 'student')
@@ -99,7 +105,7 @@ class CaseRecordController extends Controller
             'Select a valid student account.'
         );
 
-        // Create a unique reference number so staff can identify this case.
+        // Keep a human-readable date in the reference and add a random suffix to reduce collision risk.
         $case = CaseRecord::create([
             'student_id' => $validated['student_id'],
             'created_by' => $request->user()->id,
@@ -126,6 +132,8 @@ class CaseRecordController extends Controller
     {
         $this->ensureAdmin();
 
+        // Load all relationships used by the case page, including the author of each follow-up,
+        // before rendering the view.
         $case->load([
             'student',
             'creator',
@@ -147,6 +155,7 @@ class CaseRecordController extends Controller
     public function update(Request $request, CaseRecord $case): RedirectResponse
     {
         $this->ensureAdmin();
+        // Keep edits within the allowed status, category, and field lengths before saving the record.
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'category' => ['required', 'in:academic,personal,social,career,other'],

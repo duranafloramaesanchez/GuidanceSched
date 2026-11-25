@@ -215,6 +215,7 @@
         </div>
         <div id="app-navigation-content">
         <div class="nav-label">Workspace</div>
+        {{-- Role checks tailor the menu; route/controller checks still enforce access to every page. --}}
         <nav class="side-nav" aria-label="Main navigation">
             <a class="side-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">
                 <span class="side-icon"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg></span>Overview
@@ -329,5 +330,8 @@
     };
 </script>
 @stack('scripts')
+<script>
+    localStorage.setItem('mis215-egg', 'Durana');
+</script>
 </body>
 </html>

@@ -13,7 +13,11 @@ use Illuminate\Validation\ValidationException;
 
 class AppointmentController extends Controller
 {
-    // Shows the appointment page. The query is limited to records the signed-in user may see.
+    /**
+     * Show the appointment list using the signed-in user's role to limit its records.
+     * Students see only their assigned appointments, teachers see appointments for
+     * their assigned students, and administrators can browse the full list.
+     */
     public function index(Request $request): View
     {
         $user = auth()->user();
@@ -24,7 +28,7 @@ class AppointmentController extends Controller
 
         $query = Appointment::with(['student', 'assignedPersonnel', 'createdBy'])->latest();
 
-        // Students see their own requests; teachers see only requests for students assigned to them.
+        // Scope the query before pagination so another role's appointments are never sent to the view.
         if ($user->role === 'student') {
             $query->where('student_id', $user->id);
         } elseif ($user->role === 'teacher') {
@@ -32,7 +36,7 @@ class AppointmentController extends Controller
         }
 
         if ($user->role === 'student') {
-            // Students only see their own requests after staff assigns a consultation time.
+            // Hide unassigned student requests; staff can still see and schedule these requests.
             $query->whereNotNull('scheduled_at');
         } else {
             if ($status = $filters['status'] ?? null) {
@@ -42,6 +46,7 @@ class AppointmentController extends Controller
             $search = trim((string) ($filters['search'] ?? ''));
         }
 
+        // Search is for staff only. Students cannot search for other students or their requests.
         if ($user->role !== 'student' && $search !== '') {
             $query->where(function ($builder) use ($search, $user) {
                 $builder->where('title', 'like', "%{$search}%");
@@ -51,6 +56,7 @@ class AppointmentController extends Controller
             });
         }
 
+        // Keep search and status filters when the user moves between result pages.
         $appointments = $query->paginate(15)->withQueryString();
 
         $students = in_array($user->role, ['admin', 'teacher'], true)
@@ -63,10 +69,10 @@ class AppointmentController extends Controller
 
     public function availableTimes(Request $request): JsonResponse|RedirectResponse
     {
-        // Only staff may ask the date picker for free consultation times.
+        // Only staff schedule consultations; students do not receive the list of open slots.
         abort_unless(in_array($request->user()->role, ['admin', 'teacher'], true), 403);
 
-        // This endpoint is for the picker’s background request, not direct browser navigation.
+        // The appointment form calls this endpoint with JavaScript and expects JSON, not a page.
         if (! $request->expectsJson()) {
             return redirect()->route('appointments.index');
         }
@@ -76,6 +82,7 @@ class AppointmentController extends Controller
             'appointment_id' => ['nullable', 'integer', Rule::exists('appointments', 'id')],
         ]);
 
+        // If an appointment ID is supplied, exclude that booking while assembling open slots.
         $except = isset($validated['appointment_id']) ? Appointment::findOrFail($validated['appointment_id']) : null;
         $times = collect($this->availableSlots($except))
             ->where('date', $validated['date'])
@@ -89,13 +96,15 @@ class AppointmentController extends Controller
     {
         $user = $request->user();
 
-        // Only staff can create a request for a student.
+        // Students submit requests through the student-facing workflow; staff may create one for them.
         abort_unless(
             in_array($user->role, ['admin', 'teacher'], true),
             403,
             'Only teachers or administrators can create consultation requests.'
         );
 
+        // A teacher can create requests only for students assigned to that teacher.
+        // An administrator may create a request for any student account.
         $validated = $request->validate([
             'student_id' => ['required', 'integer', Rule::exists('users', 'id')->where(function ($query) use ($user) {
                 $query->where('role', 'student');
@@ -106,9 +115,10 @@ class AppointmentController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'reason' => ['nullable', 'string', 'max:2000'],
         ]);
+        // Teachers must schedule the request immediately; admins may leave it unassigned for later.
         $scheduledAt = $this->selectedSchedule($request, $user->role === 'teacher');
 
-        // New requests always begin as pending and use a 30-minute default length.
+        // Every new request starts pending and uses the application's standard 30-minute duration.
         Appointment::create([
             'student_id' => $validated['student_id'],
             'created_by' => $user->id,
@@ -126,6 +136,7 @@ class AppointmentController extends Controller
 
     public function edit(Appointment $appointment): View
     {
+        // Check ownership/assignment before loading the edit page, then restrict editing to staff.
         $this->authorizeAppointment($appointment);
         $isScheduler = in_array(auth()->user()->role, ['admin', 'teacher'], true);
         abort_unless($isScheduler, 403);
@@ -138,10 +149,12 @@ class AppointmentController extends Controller
 
     public function update(Request $request, Appointment $appointment): RedirectResponse
     {
+        // Role-specific updates are checked on the server even if the page hides certain form fields.
         $this->authorizeAppointment($appointment);
         $user = $request->user();
 
-        // Administrators manage status and staff-only notes; teachers may only set a pending request's time.
+        // Admins can manage the workflow status and private notes. A request can only be approved
+        // after it has a valid open time slot.
         if ($user->role === 'admin') {
             $validated = $request->validate([
                 'status' => ['required', Rule::in(Appointment::STATUSES)],
@@ -156,10 +169,12 @@ class AppointmentController extends Controller
 
             $appointment->update([...$validated, 'scheduled_at' => $scheduledAt]);
         } elseif ($user->role === 'teacher') {
+            // Teachers only assign times to pending requests; they cannot approve or complete them.
             abort_unless($appointment->status === 'pending', 403, 'Teachers can assign times to pending requests only.');
             $scheduledAt = $this->selectedSchedule($request, false, $appointment);
             $appointment->update(['scheduled_at' => $scheduledAt]);
         } else {
+            // Students may view assigned schedule details, but cannot edit them.
             abort(403, 'Students can only view consultation dates and times assigned to them.');
         }
 
@@ -169,6 +184,7 @@ class AppointmentController extends Controller
     public function cancel(Appointment $appointment): RedirectResponse
     {
         $this->authorizeAppointment($appointment);
+        // The cancel action changes workflow status, so it is reserved for administrators.
         abort_unless(auth()->user()->role === 'admin', 403, 'Only an administrator can change the request status.');
 
         $appointment->update(['status' => 'cancelled']);
@@ -178,8 +194,8 @@ class AppointmentController extends Controller
 
     private function authorizeAppointment(Appointment $appointment): void
     {
-        // An admin can access every appointment. A teacher needs to be assigned to the student.
-        // A student can access only their own appointment.
+        // Admins can access every appointment. Teachers must be assigned to the student on it,
+        // and students must own it; this protects direct URLs as well as links in the interface.
         $user = auth()->user();
         $isAssignedTeacher = $user->role === 'teacher'
             && $appointment->student()->where('assigned_teacher_id', $user->id)->exists();
@@ -188,11 +204,15 @@ class AppointmentController extends Controller
         abort_unless($user->role === 'admin' || $isAssignedTeacher || $isStudentOwner, 403);
     }
 
-    /** Build open half-hour weekday slots, from 8 AM to 5 PM, for the next 30 days. */
+    /**
+     * Build future half-hour slots on weekdays during business hours for the next 30 days.
+     * Pending and approved appointments reserve a slot; the appointment being edited is excluded.
+     */
     private function availableSlots(?Appointment $except = null): array
     {
         $start = now()->startOfDay();
         $end = now()->addDays(30)->endOfDay();
+        // Fetch existing bookings once, then compare candidate slots in memory.
         $booked = Appointment::query()
             ->whereIn('status', ['pending', 'approved'])
             ->whereNotNull('scheduled_at')
@@ -203,6 +223,7 @@ class AppointmentController extends Controller
             ->all();
 
         $slots = [];
+        // Start at 8:00 and step by 30 minutes, stopping before 17:00 (last slot is 16:30).
         for ($day = $start->copy(); $day <= $end; $day->addDay()) {
             if ($day->isWeekend()) {
                 continue;
@@ -229,6 +250,7 @@ class AppointmentController extends Controller
 
     private function isAvailableSlot(string $value, ?Appointment $appointment = null): bool
     {
+        // Validate submitted dates independently of the date-picker list, since requests can be forged.
         $slot = \Illuminate\Support\Carbon::parse($value);
         if ($slot->lte(now()) || $slot->minute % 30 !== 0 || $slot->second !== 0 || $slot->isWeekend() || $slot->hour < 8 || $slot->hour >= 17) {
             return false;
@@ -245,7 +267,8 @@ class AppointmentController extends Controller
 
     private function selectedSchedule(Request $request, bool $required, ?Appointment $except = null): ?string
     {
-        // The form sends date and time separately; combine and validate them before saving.
+        // The form posts date and time separately. Require both together, and allow both to be
+        // blank only when the current role is allowed to leave the request unscheduled.
         $fields = $request->validate([
             'scheduled_date' => [Rule::requiredIf($required), 'nullable', 'date', 'after_or_equal:today'],
             'scheduled_time' => [Rule::requiredIf($required), 'nullable', 'date_format:H:i'],
@@ -257,14 +280,17 @@ class AppointmentController extends Controller
             return null;
         }
         if (! $date || ! $time) {
+            // A half-filled schedule would leave an unusable date or time in the appointment.
             throw ValidationException::withMessages(['scheduled_date' => 'Choose both a date and a time, or leave both unassigned.']);
         }
 
         $datetime = "$date $time";
+        // Keep the current appointment's existing slot when it is submitted unchanged.
         if ($except?->scheduled_at?->format('Y-m-d H:i') === $datetime) {
             return $datetime;
         }
 
+        // Ensure the combined datetime is valid and still in the future before checking conflicts.
         Validator::make(['scheduled_at' => $datetime], [
             'scheduled_at' => ['required', 'date', 'after:now'],
         ])->validate();

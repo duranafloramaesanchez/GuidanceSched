@@ -1,3 +1,4 @@
+# Build browser assets in a separate Node stage so Node is not part of the PHP runtime image.
 FROM node:22-alpine AS frontend
 
 WORKDIR /app
@@ -9,6 +10,7 @@ COPY public ./public
 RUN npm install --ignore-scripts \
     && npm run build
 
+# The final image runs the Laravel app under Apache with PHP 8.5.
 FROM php:8.5-apache
 
 RUN apt-get update \
@@ -42,6 +44,7 @@ RUN composer install \
 
 COPY --from=frontend /app/public/build ./public/build
 
+# Render sends web traffic to port 10000; point Apache at Laravel's public document root.
 RUN sed -ri 's/Listen 80/Listen 10000/' /etc/apache2/ports.conf \
     && sed -ri 's/<VirtualHost \*:80>/<VirtualHost *:10000>/' /etc/apache2/sites-available/000-default.conf \
     && sed -ri 's!/var/www/html!/var/www/html/public!g' /etc/apache2/sites-available/000-default.conf \
@@ -52,4 +55,5 @@ RUN sed -ri 's/Listen 80/Listen 10000/' /etc/apache2/ports.conf \
 
 EXPOSE 10000
 
+# Apply pending schema changes before accepting requests, then keep Apache in the foreground.
 CMD ["sh", "-c", "php artisan migrate --force && exec apache2-foreground"]

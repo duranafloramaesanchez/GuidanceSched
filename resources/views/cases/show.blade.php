@@ -8,6 +8,7 @@
 
 @section('content')
     <div class="content-stack">
+        {{-- This entire view is admin-only in CaseRecordController because it contains private case details. --}}
         <section class="card">
             <div class="card-header">
                 <div>
@@ -43,6 +44,7 @@
             @endforeach
         </section>
 
+        {{-- Follow-up entries and the edit/create forms remain inside the admin-protected case page. --}}
         <section class="card">
             <div class="card-header">
                 <div>
