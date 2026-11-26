@@ -10,6 +10,7 @@
             <div><h2 class="card-title">{{ $user->name }}</h2><p class="card-subtitle">Student ID: {{ $user->student_number ?: 'Not provided' }} · {{ $user->email }}</p></div>
             <a class="button button-secondary" href="{{ route('students.index') }}">Back to students</a>
         </div>
+        @include('components.privacy-notice')
         <form method="POST" action="{{ route('students.details.update', $user) }}">
             @csrf @method('PUT')
             <div class="form-grid">

@@ -7,8 +7,9 @@
 @section('content')
     <section class="card" style="max-width:850px">
         <div class="card-header"><div><h2 class="card-title">{{ $appointment->title }}</h2><p class="card-subtitle">Submitted {{ $appointment->created_at->format('M j, Y') }}</p></div><a class="button button-secondary" href="{{ route('appointments.index') }}">Back to consultations</a></div>
-        <form method="POST" action="{{ route('appointments.update', $appointment) }}">
+        <form id="appointment-update-form" method="POST" action="{{ route('appointments.update', $appointment) }}">
             @csrf @method('PUT')
+            @include('components.privacy-notice')
             @if (in_array(auth()->user()->role, ['admin', 'teacher'], true))
                 <div class="form-grid">
                     <div class="field"><label>Requester</label><div class="primary-text">{{ $appointment->student?->name ?? 'Unavailable' }}</div><div class="field-help">{{ $appointment->student?->email }}</div></div>
@@ -43,8 +44,18 @@
                     <div class="field field-full"><label for="reason">Reason <span class="field-help">(optional)</span></label><textarea id="reason" name="reason" maxlength="2000">{{ old('reason', $appointment->reason) }}</textarea></div>
                 </div>
             @endif
-            <div class="actions" style="margin-top:20px"><button class="button" type="submit">Save changes</button><a class="button button-secondary" href="{{ route('appointments.index') }}">Cancel</a></div>
         </form>
+        <div class="actions" style="margin-top:20px; justify-content:space-between">
+            @if (auth()->user()->role === 'admin')
+                <form method="POST" action="{{ route('appointments.destroy', $appointment) }}" onsubmit="return confirm('Permanently delete this consultation request? This cannot be undone.')">
+                    @csrf @method('DELETE')<button class="button button-danger" type="submit">Delete appointment</button>
+                </form>
+            @endif
+            <div class="actions">
+                <button class="button" type="submit" form="appointment-update-form">Save changes</button>
+                <a class="button button-secondary" href="{{ route('appointments.index') }}">Cancel</a>
+            </div>
+        </div>
     </section>
     @push('scripts')
         <script>

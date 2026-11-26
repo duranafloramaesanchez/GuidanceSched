@@ -8,6 +8,7 @@
     <div class="content-grid">
         <section class="card">
             <div class="card-header"><div><h2 class="card-title">New account</h2><p class="card-subtitle">Choose the role that matches the person’s access.</p></div></div>
+            @include('components.privacy-notice')
             <form method="POST" action="{{ route('users.store') }}">
                 @csrf
                 <div class="form-grid">

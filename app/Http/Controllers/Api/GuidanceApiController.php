@@ -7,7 +7,9 @@ use App\Models\Appointment;
 use App\Models\CaseRecord;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class GuidanceApiController extends Controller
 {
@@ -62,7 +64,7 @@ class GuidanceApiController extends Controller
         ]);
         // A valid date is not enough: enforce the same business-hour and conflict rules as the web form.
         if (! empty($data['scheduled_at']) && ! $this->isAvailableSlot($data['scheduled_at'])) {
-            return response()->json(['message' => 'That time is unavailable. Choose another slot.'], 422);
+            throw ValidationException::withMessages(['scheduled_at' => 'That time is unavailable. Choose another slot.']);
         }
 
         $appointment = Appointment::create([
@@ -111,11 +113,11 @@ class GuidanceApiController extends Controller
             ]);
             abort_if($data === [], 422, 'Provide at least one field to update.');
             if (! empty($data['scheduled_at']) && ! $this->isAvailableSlot($data['scheduled_at'], $appointment)) {
-                return response()->json(['message' => 'That time is unavailable. Choose another slot.'], 422);
+                throw ValidationException::withMessages(['scheduled_at' => 'That time is unavailable. Choose another slot.']);
             }
             // Approval without an assigned time would create an unusable appointment.
             if (($data['status'] ?? null) === 'approved' && empty($data['scheduled_at'] ?? $appointment->scheduled_at)) {
-                return response()->json(['message' => 'Assign an available consultation time before approving.'], 422);
+                throw ValidationException::withMessages(['scheduled_at' => 'Assign an available consultation time before approving.']);
             }
         } elseif ($user->role === 'teacher') {
             // Teachers may assign a time only while the request is pending; status remains admin-controlled.
@@ -125,7 +127,7 @@ class GuidanceApiController extends Controller
             ]);
             abort_if($data === [], 422, 'Provide an available scheduled_at time.');
             if (! empty($data['scheduled_at']) && ! $this->isAvailableSlot($data['scheduled_at'], $appointment)) {
-                return response()->json(['message' => 'That time is unavailable. Choose another slot.'], 422);
+                throw ValidationException::withMessages(['scheduled_at' => 'That time is unavailable. Choose another slot.']);
             }
         } else {
             abort_unless($appointment->status === 'pending', 403);
@@ -148,6 +150,15 @@ class GuidanceApiController extends Controller
         $appointment->update(['status' => 'cancelled']);
 
         return response()->json(['data' => $this->appointmentData($appointment->refresh())]);
+    }
+
+    public function deleteAppointment(Request $request, Appointment $appointment): Response
+    {
+        $this->authorizeAppointment($request, $appointment);
+        abort_unless($request->user()->role === 'admin', 403, 'Only an administrator can delete an appointment.');
+        $appointment->delete();
+
+        return response()->noContent();
     }
 
     public function cases(Request $request): JsonResponse

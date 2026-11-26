@@ -9,10 +9,11 @@
         <div class="card-header">
             <div>
                 <h2 class="card-title">Case information</h2>
-                <p class="card-subtitle">Use synthetic information in development and demonstrations.</p>
+                <p class="card-subtitle">Enter information relevant to the guidance follow-up.</p>
             </div>
             <a class="button button-secondary" href="{{ route('cases.index') }}">Back to cases</a>
         </div>
+        @include('components.privacy-notice')
         <form method="POST" action="{{ route('cases.store') }}" class="form-grid">
             @csrf
             <div class="field">

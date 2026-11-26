@@ -1,0 +1,229 @@
+openapi: 3.0.3
+info:
+  title: GuidanceSched API
+  version: 1.0.0
+  description: Guidance appointment and confidential case workflows.
+servers:
+  - url: /api
+security:
+  - basicAuth: []
+paths:
+  /appointments:
+    get:
+      summary: List appointments visible to the authenticated user
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string, enum: [pending, approved, completed, cancelled] }
+      responses:
+        '200': { description: 'JSON paginator with data: [{id, student_id, title, reason, scheduled_at, duration_minutes, status, created_at}] for staff; students receive [{title, scheduled_at, status}].' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      summary: Create an appointment request (admin or teacher)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [student_id, title]
+              properties:
+                student_id: { type: integer }
+                title: { type: string, maxLength: 255 }
+                reason: { type: string, maxLength: 2000 }
+                scheduled_at: { type: string, format: date-time, description: Required for teachers; must be an available future weekday half-hour slot. }
+      responses:
+        '201': { description: 'JSON body: {data: {id, student_id, title, reason, scheduled_at, duration_minutes, status, created_at}}.' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+  /appointments/{appointment}:
+    parameters:
+      - $ref: '#/components/parameters/AppointmentId'
+    get:
+      summary: Read an appointment visible to the authenticated user
+      responses:
+        '200': { description: 'JSON body: {data: {id, student_id, title, reason, scheduled_at, duration_minutes, status, created_at}}; student fields are limited to {title, scheduled_at, status}.' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      summary: Update an appointment (fields depend on role and state)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                title: { type: string, maxLength: 255 }
+                reason: { type: string, maxLength: 2000, nullable: true }
+                status: { type: string, enum: [pending, approved, completed, cancelled] }
+                scheduled_at: { type: string, format: date-time, nullable: true }
+                assigned_to: { type: integer, nullable: true }
+                notes: { type: string, maxLength: 2000, nullable: true }
+      responses:
+        '200': { description: 'JSON body: {data: {id, student_id, title, reason, scheduled_at, duration_minutes, status, created_at}}.' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      summary: Permanently delete an appointment (admin only)
+      responses:
+        '204': { description: Appointment deleted successfully; response has no body }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+  /appointments/{appointment}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/AppointmentId'
+    patch:
+      summary: Cancel an appointment (admin only)
+      responses:
+        '200': { description: 'JSON body: {data: {id, student_id, title, reason, scheduled_at, duration_minutes, status, created_at}} with status cancelled.' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+  /cases:
+    get:
+      summary: List confidential cases (admin only)
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string, enum: [open, in_progress, closed] }
+        - in: query
+          name: search
+          schema: { type: string, maxLength: 100 }
+      responses:
+        '200': { description: 'JSON paginator with data: [{id, case_number, student, appointment_id, title, category, description, status, created_at}].' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+  /cases/{case}:
+    parameters:
+      - $ref: '#/components/parameters/CaseId'
+    get:
+      summary: Read case details and follow-up history (admin only)
+      responses:
+        '200': { description: 'JSON body: {data: {id, case_number, student, appointment_id, title, category, description, status, created_at, follow_ups}}.' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+  /cases/{case}/status:
+    parameters:
+      - $ref: '#/components/parameters/CaseId'
+    patch:
+      summary: Change case status (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [open, in_progress, closed] }
+      responses:
+        '200': { description: 'JSON body: {data: {id, case_number, student, appointment_id, title, category, description, status, created_at}}.' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+  /cases/{case}/follow-ups:
+    parameters:
+      - $ref: '#/components/parameters/CaseId'
+    get:
+      summary: List follow-ups for a case (admin only)
+      responses:
+        '200': { description: 'JSON body: {data: [{id, case_record_id, created_by, follow_up_date, notes, action_taken, creator}]}.' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      summary: Record a follow-up (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [follow_up_date, notes]
+              properties:
+                follow_up_date: { type: string, format: date }
+                notes: { type: string, maxLength: 5000 }
+                action_taken: { type: string, maxLength: 255 }
+      responses:
+        '201': { description: 'JSON body: {data: {id, case_record_id, created_by, follow_up_date, notes, action_taken, creator}}.' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+  parameters:
+    AppointmentId:
+      in: path
+      name: appointment
+      required: true
+      schema: { type: integer }
+    CaseId:
+      in: path
+      name: case
+      required: true
+      schema: { type: integer }
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: { type: object, additionalProperties: { type: array, items: { type: string } } }
+  responses:
+    BadRequest:
+      description: Invalid request; validation details may be present
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { code: BAD_REQUEST, message: 'The request could not be processed.', details: { title: ['The title field is required.'] } } }
+    Unauthorized:
+      description: Missing or invalid HTTP Basic credentials
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: Authenticated user lacks permission
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    ServerError:
+      description: Unexpected server error
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }

@@ -85,31 +85,168 @@ The system can reject a request if the user is not signed in (API: 401), is not 
 - Students see only limited information about their own appointments. Only admins can use the case and follow-up API addresses.
 - The API uses Basic Authentication, a simple sign-in method. Before real use, the school should review whether a stronger sign-in method is needed.
 
+### Communication protocol specification (summary)
+
+GuidanceSched exposes a REST-style API under `/api`. Clients send and receive JSON over HTTP; use **HTTPS** whenever traffic crosses a network so credentials and student information are encrypted in transit. The checked-in development setup may use local HTTP, so it should not be treated as a secure public deployment. Every API endpoint requires HTTP Basic Authentication, and the server applies role and record-level access checks. Case and follow-up endpoints are administrator-only.
+
+| Core transaction | Endpoint | Method | Access |
+| --- | --- | --- | --- |
+| List appointments | `/api/appointments` | GET | Signed-in users; results scoped by role |
+| Create appointment request | `/api/appointments` | POST | Admin or teacher |
+| Read appointment | `/api/appointments/{appointment}` | GET | Authorized owner or staff |
+| Update appointment | `/api/appointments/{appointment}` | PATCH | Authorized staff; fields depend on role/state |
+| Cancel appointment | `/api/appointments/{appointment}/cancel` | PATCH | Admin |
+| Delete appointment | `/api/appointments/{appointment}` | DELETE | Admin |
+| List / read cases | `/api/cases`, `/api/cases/{case}` | GET | Admin |
+| Change case status | `/api/cases/{case}/status` | PATCH | Admin |
+| List / record follow-ups | `/api/cases/{case}/follow-ups` | GET / POST | Admin |
+
+Successful reads and updates return **200**, new records return **201**, and deletes return **204** with no response body. Errors use a consistent JSON object, for example `{"error":{"code":"BAD_REQUEST","message":"The request could not be processed.","details":{"title":["The title field is required."]}}}`. The API uses **400** for invalid input, **401** for missing or invalid credentials, **403** for insufficient permissions, **404** for missing or inaccessible records, and **500** for unexpected server errors.
+
+## Appendix A. Full communication protocol specification
+
+The machine-readable **OpenAPI 3.0.3** specification is in [`docs/openapi.yaml`](openapi.yaml). It defines the endpoint URIs, HTTP methods, request and response formats, authentication, and possible status codes for all 11 operations listed above. It is the full endpoint reference for this summary.
+
+The endpoint-by-endpoint curl success and failure cases are in [`docs/api-test-plan.md`](api-test-plan.md). They are prepared but have **not been executed** because the local Docker/Podman service was unavailable when checked. Record actual HTTP results there after running the application; the listed cases are not evidence of successful execution.
+
+All error responses use `{ "error": { "code": "...", "message": "...", "details": { ... } } }`. `details` is included for validation errors when field-level information is available. Authentication is required for every operation. The API's common status codes are 200, 201, 204, 400, 401, 403, 404, and 500; route-specific responses are documented in the OpenAPI file.
+
 ## 7. Where the system runs
 
-**Current setup for development and demos:** Docker Compose starts the app and database.
-
-- **App container:** runs the GuidanceSched website using PHP 8.5.
-- **Database container:** runs PostgreSQL 18 and stores the system's information.
-- Docker connects the two containers on a private network. The database port is only opened to the local computer in the checked-in setup.
-- The app's project files are shared with its container so developers can work on them.
-
-**Recommendation before shared use:** put the app behind a secure HTTPS connection, keep the database private, protect passwords and other secret settings, and set up monitored backups. The project does not include a complete setup for a live production service.
-
-## 8. What information is stored
-
-| Record | Examples of stored information |
+| Area | Deployment |
 | --- | --- |
-| Users | Name, email, password saved in protected form, role, student and guardian contact details, assigned teacher |
-| Appointments | Student, staff member, title, reason, date and time, length, status, staff-only notes |
-| Cases | Student, staff member, case number, title, description, category, status, session details, findings and recommendations |
-| Follow-ups | Case, staff member, date, notes, action taken |
-| Web sessions | Information that keeps a user signed in while using the website |
+| Environment | Development runs in WSL Ubuntu with Docker Desktop. A temporary online test deployment is defined for Render in Singapore. |
+| Containers | Docker Compose runs the PHP 8.5 Laravel app and PostgreSQL 18 locally. Render builds the app image from `Dockerfile` and connects it to a managed PostgreSQL database. |
+| Virtual machines | No project-specific virtual machine is configured. Docker Desktop and Render provide the underlying host infrastructure. |
+| Network access | Locally, the browser reaches the app on the host's web port; the app and database communicate over a private Docker network. PostgreSQL is bound to localhost only. On Render, users reach the web service at its HTTPS URL and the app connects to the database over Render's private network. |
 
-- The database connects related records, such as a case to a student or an appointment to its creator.
-- Case descriptions, findings, recommendations, and follow-up notes should be restricted to authorized staff. The appointment API leaves out staff-only notes.
-- Database backups should be kept somewhere protected. Test restoring a backup only in a separate test database.
-- The school should decide how long records are kept and when they are deleted. The project does not set these rules.
+The Render setup is for testing, not production. Before shared use, review HTTPS, secret settings, database access, backups, monitoring, and the school's privacy requirements. Use synthetic records until the school approves real data use.
+
+## 8. Data design and storage plan
+
+GuidanceSched uses PostgreSQL, a relational database management system, as the authoritative store for business data. The local Docker Compose setup runs PostgreSQL 18. The core entities are users, appointments, case records, and follow-ups. Foreign keys connect records and define what happens when a related record is deleted.
+
+### Entity-relationship diagram
+
+```mermaid
+erDiagram
+    USERS ||--o{ USERS : "assigned teacher"
+    USERS ||--o{ APPOINTMENTS : "student"
+    USERS ||--o{ APPOINTMENTS : "creates"
+    USERS ||--o{ APPOINTMENTS : "assigned staff"
+    APPOINTMENTS ||--o{ CASE_RECORDS : "optional link"
+    USERS ||--o{ CASE_RECORDS : "student"
+    USERS ||--o{ CASE_RECORDS : "creates"
+    CASE_RECORDS ||--o{ FOLLOW_UPS : "has"
+    USERS ||--o{ FOLLOW_UPS : "creates"
+    USERS ||--o{ PASSKEYS : "registers"
+
+    USERS {
+        bigint id PK
+        string email UK
+        string role
+        bigint assigned_teacher_id FK
+        string student_number UK
+    }
+    APPOINTMENTS {
+        bigint id PK
+        bigint student_id FK
+        bigint created_by FK
+        bigint assigned_to FK
+        datetime scheduled_at
+        string status
+    }
+    CASE_RECORDS {
+        bigint id PK
+        bigint student_id FK
+        bigint created_by FK
+        bigint appointment_id FK
+        string case_number UK
+        string status
+    }
+    FOLLOW_UPS {
+        bigint id PK
+        bigint case_record_id FK
+        bigint created_by FK
+        date follow_up_date
+        text notes
+    }
+    PASSKEYS {
+        bigint id PK
+        bigint user_id FK
+        string credential_id UK
+        json credential
+    }
+```
+
+`PK` means primary key, `FK` means foreign key, and `UK` means unique value. Laravel also defines support tables for sessions, password resets, caching, and queued jobs.
+
+### Data dictionary
+
+| Table | Important fields | Purpose and relationships |
+| --- | --- | --- |
+| `users` | `id`, `name`, `email`, `password`, `role`, `student_number`, `grade_level`, `section`, contact and guardian fields, `assigned_teacher_id` | Student, teacher, and administrator accounts. `assigned_teacher_id` optionally relates a student to a teacher in this table. Email and student number are unique. Passwords are stored as hashes. |
+| `appointments` | `id`, `student_id`, `created_by`, `assigned_to`, `title`, `reason`, `scheduled_at`, `duration_minutes`, `status`, `notes` | A consultation request for a student, created by an account and optionally assigned to staff. `notes` are staff-only. Student deletion cascades to appointments; deleting creator or assignee accounts clears those references. |
+| `case_records` | `id`, `student_id`, `created_by`, `appointment_id`, `case_number`, `title`, `description`, `status`, `category`, `remarks`, session date/time, `findings`, `recommendations` | Confidential guidance case linked to a student and creator, optionally linked to an appointment. Case number is unique. Deleting a student deletes their cases; deleting a linked appointment clears the optional link. |
+| `follow_ups` | `id`, `case_record_id`, `created_by`, `follow_up_date`, `notes`, `action_taken` | Dated actions and notes belonging to a case. Deleting a case cascades to its follow-ups. Creator account deletion is restricted to preserve attribution. |
+| `passkeys` | `id`, `user_id`, `name`, `credential_id`, `credential`, `last_used_at` | Authentication credentials associated with a user account. Deleting the account deletes its passkeys. |
+| `sessions` | `id`, `user_id`, `ip_address`, `user_agent`, `payload`, `last_activity` | Laravel browser session data. `.env.example` selects the database session driver, so the session table is used with that configuration. |
+| Support tables | `password_reset_tokens`, `cache`, `cache_locks`, `jobs`, `job_batches`, `failed_jobs` | Framework support for password resets, cache, and queued work. |
+
+### Client-side storage
+
+The browser does not store business records such as appointments, profiles, cases, or follow-up notes locally. Those remain on the server in PostgreSQL. Browser authentication uses a session cookie, while session state is managed server-side according to the Laravel session configuration. Do not put student information, passwords, or authentication tokens in browser local storage.
+
+### Backup and restore procedure
+
+Backups contain sensitive student information. Keep them access-controlled, encrypted when stored or transferred, and outside source control. Run these scripts from the project root while Sail's PostgreSQL service is running. Use a separate, disposable database for restore verification.
+
+**Backup script** (`backup-guidancesched.sh`):
+
+```sh
+#!/bin/sh
+set -eu
+
+backup_file="${1:-backups/guidancesched-$(date +%Y%m%d-%H%M%S).dump}"
+mkdir -p "$(dirname "$backup_file")"
+
+vendor/bin/sail exec -T pgsql sh -c \
+  'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom' \
+  > "$backup_file"
+
+chmod 600 "$backup_file"
+printf 'Backup created: %s\n' "$backup_file"
+```
+
+**Restore script** (`restore-guidancesched.sh`):
+
+```sh
+#!/bin/sh
+set -eu
+
+backup_file="${1:?Usage: restore-guidancesched.sh BACKUP_FILE}"
+test -r "$backup_file"
+restore_db="guidancesched_restore_test"
+
+# This dedicated test database is recreated on each run; the configured app database is untouched.
+vendor/bin/sail exec -T pgsql sh -c \
+  'dropdb --if-exists -U "$POSTGRES_USER" guidancesched_restore_test && createdb -U "$POSTGRES_USER" guidancesched_restore_test'
+
+vendor/bin/sail exec -T pgsql sh -c \
+  'pg_restore --no-owner -U "$POSTGRES_USER" -d guidancesched_restore_test' \
+  < "$backup_file"
+
+vendor/bin/sail exec -T pgsql sh -c \
+  'psql -U "$POSTGRES_USER" -d guidancesched_restore_test -c "\\dt"'
+
+printf 'Restored %s into %s; verify expected tables and synthetic records before removing the test database.\n' "$backup_file" "$restore_db"
+```
+
+After restoring, check that expected tables and known synthetic records exist, then confirm the restored data can be read by the application or a test connection. Record the backup date, restore date, target test database, and verification result. The test database and backup must be protected and removed securely when the drill is complete.
+
+**Restore demonstration:** Not yet recorded. Run the scripts against the local Sail database and replace this note with the observed result. A successful `pg_restore` command alone is not enough; verify expected tables and records.
+
+The school still needs to set its retention and deletion schedule and decide how often backups are taken, where protected copies are stored, and who may restore them.
 
 ## 9. Security and student privacy (RA 10173)
 

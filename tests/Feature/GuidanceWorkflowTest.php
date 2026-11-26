@@ -60,6 +60,58 @@ class GuidanceWorkflowTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_admin_can_delete_appointment_from_the_manage_page(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $student = User::factory()->create(['role' => 'student']);
+        $appointment = Appointment::create([
+            'student_id' => $student->id,
+            'created_by' => $admin->id,
+            'title' => 'Delete from admin list',
+            'scheduled_at' => now()->addDays(2),
+            'status' => 'pending',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('appointments.index'))
+            ->assertOk()
+            ->assertSee('Manage')
+            ->assertDontSee('Delete appointment');
+
+        $this->actingAs($admin)
+            ->get(route('appointments.edit', $appointment))
+            ->assertOk()
+            ->assertSee('Delete appointment');
+
+        $this->actingAs($admin)
+            ->delete(route('appointments.destroy', $appointment))
+            ->assertRedirect(route('appointments.index'));
+
+        $this->assertDatabaseMissing('appointments', ['id' => $appointment->id]);
+    }
+
+    public function test_student_cannot_delete_their_own_appointment(): void
+    {
+        $student = User::factory()->create(['role' => 'student']);
+        $appointment = Appointment::create([
+            'student_id' => $student->id,
+            'title' => 'Student owned request',
+            'scheduled_at' => now()->addDays(2),
+            'status' => 'pending',
+        ]);
+
+        $this->actingAs($student)
+            ->get(route('appointments.edit', $appointment))
+            ->assertOk()
+            ->assertDontSee('Delete appointment');
+
+        $this->actingAs($student)
+            ->delete(route('appointments.destroy', $appointment))
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('appointments', ['id' => $appointment->id]);
+    }
+
     public function test_admin_can_record_a_follow_up_for_a_case(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
@@ -109,6 +161,41 @@ class GuidanceWorkflowTest extends TestCase
         $this->withBasicAuth($student->email, 'demo-password')
             ->getJson('/api/cases')
             ->assertForbidden();
+    }
+
+    public function test_admin_delete_removes_appointment_while_cancel_keeps_it(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'password' => 'demo-password']);
+        $student = User::factory()->create(['role' => 'student']);
+        $cancelledAppointment = Appointment::create([
+            'student_id' => $student->id,
+            'created_by' => $admin->id,
+            'title' => 'Keep cancelled request',
+            'scheduled_at' => now()->addDays(2),
+            'status' => 'pending',
+        ]);
+        $deletedAppointment = Appointment::create([
+            'student_id' => $student->id,
+            'created_by' => $admin->id,
+            'title' => 'Delete request',
+            'scheduled_at' => now()->addDays(3),
+            'status' => 'pending',
+        ]);
+
+        $this->withBasicAuth($admin->email, 'demo-password')
+            ->patchJson("/api/appointments/{$cancelledAppointment->id}/cancel")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'cancelled');
+
+        $this->withBasicAuth($admin->email, 'demo-password')
+            ->deleteJson("/api/appointments/{$deletedAppointment->id}")
+            ->assertNoContent();
+
+        $this->assertDatabaseHas('appointments', [
+            'id' => $cancelledAppointment->id,
+            'status' => 'cancelled',
+        ]);
+        $this->assertDatabaseMissing('appointments', ['id' => $deletedAppointment->id]);
     }
 
     public function test_documented_api_workflows_for_appointments_cases_and_follow_ups(): void

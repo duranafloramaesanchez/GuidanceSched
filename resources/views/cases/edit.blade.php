@@ -13,6 +13,7 @@
             </div>
             <a class="button button-secondary" href="{{ route('cases.show', $case) }}">Back to case</a>
         </div>
+        @include('components.privacy-notice')
         <form method="POST" action="{{ route('cases.update', $case) }}" class="form-grid">
             @csrf @method('PUT')
             <div class="field field-full">

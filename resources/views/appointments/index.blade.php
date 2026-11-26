@@ -18,6 +18,7 @@
                     </div>
                     <span class="badge">New request</span>
                 </div>
+                @include('components.privacy-notice')
                 <form method="POST" action="{{ route('appointments.store') }}" class="form-grid">
                     @csrf
                     <div class="field field-full">

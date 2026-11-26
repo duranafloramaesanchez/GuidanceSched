@@ -102,6 +102,7 @@
         .inline-form { display: inline-flex; margin: 0; }
         .notice { margin-bottom: 18px; padding: 12px 15px; border: 1px solid #d0eadf; border-radius: 9px; color: #24694c; background: #f0faf5; font-size: 12px; }
         .notice-error { border-color: #f0d5d3; color: #913b37; background: #fff6f5; }
+        .privacy-notice { margin: 0 0 16px; padding: 12px 14px; border: 1px solid #d8e8e2; border-radius: 9px; color: #36554d; background: #f4faf7; font-size: 12px; }
         .notice ul { margin: 6px 0 0; padding-left: 20px; }
         .empty-state { padding: 34px 20px; color: var(--muted); text-align: center; }
         .empty-icon { display: grid; place-items: center; width: 42px; height: 42px; margin: 0 auto 12px; border-radius: 13px; color: #438b77; background: #e9f5f1; font-size: 20px; }

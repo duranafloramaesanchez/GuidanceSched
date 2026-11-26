@@ -192,6 +192,15 @@ class AppointmentController extends Controller
         return redirect()->route('appointments.index')->with('success', 'Appointment cancelled.');
     }
 
+    public function destroy(Appointment $appointment): RedirectResponse
+    {
+        $this->authorizeAppointment($appointment);
+        abort_unless(auth()->user()->role === 'admin', 403, 'Only an administrator can delete an appointment.');
+        $appointment->delete();
+
+        return redirect()->route('appointments.index')->with('success', 'Appointment deleted.');
+    }
+
     private function authorizeAppointment(Appointment $appointment): void
     {
         // Admins can access every appointment. Teachers must be assigned to the student on it,

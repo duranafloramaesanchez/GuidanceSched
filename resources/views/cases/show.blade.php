@@ -10,6 +10,7 @@
     <div class="content-stack">
         {{-- This entire view is admin-only in CaseRecordController because it contains private case details. --}}
         <section class="card">
+            @include('components.privacy-notice')
             <div class="card-header">
                 <div>
                     <span class="badge badge-{{ $case->status }}">{{ ucfirst(str_replace('_', ' ', $case->status)) }}</span>

@@ -1,0 +1,46 @@
+This is ApacheBench, Version 2.3 <$Revision: 1879490 $>
+Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/
+Licensed to The Apache Software Foundation, http://www.apache.org/
+
+Benchmarking localhost (be patient)
+Completed 100 requests
+Completed 200 requests
+Completed 300 requests
+Finished 300 requests
+
+
+Server Software:        
+Server Hostname:        localhost
+Server Port:            80
+
+Document Path:          /api/appointments
+Document Length:        5174 bytes
+
+Concurrency Level:      10
+Time taken for tests:   18.144 seconds
+Complete requests:      300
+Failed requests:        0
+Total transferred:      1628400 bytes
+HTML transferred:       1552200 bytes
+Requests per second:    16.53 [#/sec] (mean)
+Time per request:       604.789 [ms] (mean)
+Time per request:       60.479 [ms] (mean, across all concurrent requests)
+Transfer rate:          87.65 [Kbytes/sec] received
+
+Connection Times (ms)
+              min  mean[+/-sd] median   max
+Connect:        0    0   0.1      0       0
+Processing:     0  623 226.8    668    1026
+Waiting:        0  624 224.3    667    1025
+Total:          0  624 226.8    668    1026
+
+Percentage of the requests served within a certain time (ms)
+  50%    668
+  66%    687
+  75%    704
+  80%    728
+  90%    918
+  95%    947
+  98%    984
+  99%    996
+ 100%   1026 (longest request)

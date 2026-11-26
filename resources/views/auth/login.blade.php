@@ -20,6 +20,7 @@
                 <div class="auth-brand"><span class="brand-mark">G</span> GuidanceSched</div>
                 <h1 class="auth-title">Welcome back</h1>
                 <p class="auth-copy">Sign in to your school guidance workspace.</p>
+                @include('components.privacy-notice')
                 <form method="POST" action="{{ route('login.store') }}">
                     @csrf
                     <div class="field">

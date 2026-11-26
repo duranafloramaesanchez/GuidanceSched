@@ -8,6 +8,7 @@
     <div class="content-grid">
         <section class="card">
             <div class="card-header"><div><h2 class="card-title">Account details</h2><p class="card-subtitle">Update {{ $user->name }}’s profile and access role.</p></div></div>
+            @include('components.privacy-notice')
             <form method="POST" action="{{ route('users.update', $user) }}">
                 @csrf @method('PUT')
                 <div class="form-grid">
